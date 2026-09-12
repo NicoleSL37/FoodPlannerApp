@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Image,
   TouchableOpacity,
   ScrollView,
   StatusBar,
@@ -60,9 +61,11 @@ export default function RecipeDetailScreen({ navigation }) {
         
         {/* Hero Imagen / Platillo */}
         <View style={styles.heroContainer}>
-          <View style={styles.heroIconCircle}>
-            <Feather name="coffee" size={46} color="#84A98C" />
-          </View>
+          <Image
+            source={{ uri: 'https://picsum.photos/800/500' }}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
           <View style={styles.heroTag}>
             <Text style={styles.heroTagText}>Desayuno Saludable</Text>
           </View>
