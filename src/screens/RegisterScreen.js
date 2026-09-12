@@ -33,6 +33,17 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
 
+    const emailRegex = /^[^\s@]+@(gmail|hotmail|outlook)\.com$/i;
+    if (!emailRegex.test(email)) {
+      alert('Por favor ingresa un correo electrónico válido');
+      return;
+    }
+
+    if (password.length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
     if (password !== confirmPassword) {
       alert('Las contraseñas no coinciden');
       return;
