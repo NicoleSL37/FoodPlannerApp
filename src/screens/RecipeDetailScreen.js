@@ -1,58 +1,48 @@
-import React, { useState } from 'react';
+import React, { useContext } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  Image,
   TouchableOpacity,
   ScrollView,
-  StatusBar,
+  Alert,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { UserContext } from '../context/UserContext';
+import { RECIPES, getRecipeById } from '../data/recipes';
+import { colors } from '../theme/colors';
+import { Screen, RecipeImage } from '../components';
 
-export default function RecipeDetailScreen({ navigation }) {
-  const [isFavorite, setIsFavorite] = useState(true);
+export default function RecipeDetailScreen({ route, navigation }) {
+  const { favorites, toggleFavorite } = useContext(UserContext);
 
-  const ingredients = [
-    '1/2 taza de avena en hojuelas',
-    '1 taza de leche de almendras sin azúcar',
-    '1 cucharada de semillas de chía',
-    '1/2 plátano cortado en rodajas finas',
-    '1 puñado de frutos rojos frescos y miel',
-  ];
-
-  const steps = [
-    'Cocina la avena junto con la leche de almendras en una olla pequeña a fuego medio durante 5-7 minutos hasta obtener una textura cremosa.',
-    'Retira del fuego e incorpora las semillas de chía mezclando suavemente. Deja reposar durante 2 minutos.',
-    'Sirve en un tazón hondo y decora con las rodajas de plátano, los frutos rojos frescos y un hilo fino de miel o canela al gusto.',
-  ];
+  // La receta llega por parámetro (recipeId). Si no llega, mostramos la primera.
+  const recipe = getRecipeById(route.params?.recipeId) || RECIPES[0];
+  const { ingredients, steps } = recipe;
+  const isFavorite = favorites.includes(recipe.id);
 
   const handleBack = () => {
-    console.log('Volviendo...');
     navigation.goBack();
   };
 
   const handleCameraRecord = () => {
-    console.log('Abriendo cámara para registrar plato...');
-    navigation.navigate('PreparationRecord');
+    navigation.navigate('PreparationRecord', { recipeTitle: recipe.title });
   };
 
   const handleAddToPlan = () => {
-    console.log('Añadido al plan semanal');
-    alert('¡Receta añadida a tu plan semanal!');
+    Alert.alert('Plan semanal', '¡Receta añadida a tu plan semanal!');
   };
 
   return (
-    <View style={styles.rootContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FDFBF7" />
+    <Screen>
 
       {/* Header Flotante superior */}
       <View style={styles.floatingHeader}>
-        <TouchableOpacity style={styles.circularButton} onPress={handleBack}>
-          <Feather name="chevron-left" size={20} color="#3E2723" style={{ marginRight: 2 }} />
+        <TouchableOpacity style={styles.circularButton} onPress={handleBack} accessibilityLabel="Volver">
+          <Feather name="chevron-left" size={20} color={colors.text} style={{ marginRight: 2 }} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.circularButton} onPress={() => setIsFavorite(!isFavorite)}>
-          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={18} color="#E63946" />
+        <TouchableOpacity style={styles.circularButton} onPress={() => toggleFavorite(recipe.id)} accessibilityLabel={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}>
+          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={18} color={colors.danger} />
         </TouchableOpacity>
       </View>
 
@@ -61,29 +51,25 @@ export default function RecipeDetailScreen({ navigation }) {
         
         {/* Hero Imagen / Platillo */}
         <View style={styles.heroContainer}>
-          <Image
-            source={{ uri: 'https://picsum.photos/800/500' }}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
+          <RecipeImage uri={recipe.image} icon={recipe.icon} />
           <View style={styles.heroTag}>
-            <Text style={styles.heroTagText}>Desayuno Saludable</Text>
+            <Text style={styles.heroTagText}>{recipe.category} · {recipe.tag}</Text>
           </View>
         </View>
 
         {/* Tarjeta Principal de Información */}
         <View style={styles.mainInfoCard}>
-          <Text style={styles.recipeTitle}>Bowl de Avena con Frutas y Chía</Text>
+          <Text style={styles.recipeTitle}>{recipe.title}</Text>
 
           {/* Fila de Metadatos */}
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <View style={[styles.metaIconBox, { backgroundColor: 'rgba(132, 169, 140, 0.12)' }]}>
-                <Feather name="clock" size={14} color="#84A98C" />
+              <View style={[styles.metaIconBox, { backgroundColor: colors.primarySoft }]}>
+                <Feather name="clock" size={14} color={colors.primary} />
               </View>
               <View>
                 <Text style={styles.metaLabel}>Tiempo</Text>
-                <Text style={styles.metaValue}>15 min</Text>
+                <Text style={styles.metaValue}>{recipe.time}</Text>
               </View>
             </View>
 
@@ -91,23 +77,23 @@ export default function RecipeDetailScreen({ navigation }) {
 
             <View style={styles.metaItem}>
               <View style={[styles.metaIconBox, { backgroundColor: 'rgba(230, 57, 70, 0.1)' }]}>
-                <Ionicons name="flame" size={14} color="#E63946" />
+                <Ionicons name="flame" size={14} color={colors.danger} />
               </View>
               <View>
                 <Text style={styles.metaLabel}>Calorías</Text>
-                <Text style={styles.metaValue}>320 kcal</Text>
+                <Text style={styles.metaValue}>{recipe.kcal} kcal</Text>
               </View>
             </View>
 
             <View style={styles.metaDivider} />
 
             <View style={styles.metaItem}>
-              <View style={[styles.metaIconBox, { backgroundColor: 'rgba(132, 169, 140, 0.12)' }]}>
-                <Feather name="user" size={14} color="#84A98C" />
+              <View style={[styles.metaIconBox, { backgroundColor: colors.primarySoft }]}>
+                <Feather name="user" size={14} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.metaLabel}>Porción</Text>
-                <Text style={styles.metaValue}>1 pers.</Text>
+                <Text style={styles.metaLabel}>Porciones</Text>
+                <Text style={styles.metaValue}>{recipe.servings} {recipe.servings === 1 ? 'pers.' : 'pers.'}</Text>
               </View>
             </View>
           </View>
@@ -123,7 +109,7 @@ export default function RecipeDetailScreen({ navigation }) {
               {ingredients.map((item, index) => (
                 <View key={index} style={[styles.ingredientRow, index !== ingredients.length - 1 && styles.ingredientBorder]}>
                   <View style={styles.checkIconBox}>
-                    <Feather name="check" size={11} color="#84A98C" />
+                    <Feather name="check" size={11} color={colors.primary} />
                   </View>
                   <Text style={styles.ingredientText}>{item}</Text>
                 </View>
@@ -147,7 +133,7 @@ export default function RecipeDetailScreen({ navigation }) {
 
             {/* Botón Ya lo cociné */}
             <TouchableOpacity style={styles.cameraButton} onPress={handleCameraRecord}>
-              <Feather name="camera" size={18} color="#84A98C" />
+              <Feather name="camera" size={18} color={colors.primary} />
               <Text style={styles.cameraButtonText}>¡Ya lo cociné! Registrar foto</Text>
             </TouchableOpacity>
           </View>
@@ -158,24 +144,15 @@ export default function RecipeDetailScreen({ navigation }) {
       {/* Botón Flotante Inferior */}
       <View style={styles.floatingFooter}>
         <TouchableOpacity style={styles.addToPlanButton} onPress={handleAddToPlan}>
-          <Feather name="calendar" size={18} color="#FFF" />
+          <Feather name="calendar" size={18} color={colors.white} />
           <Text style={styles.addToPlanText}>Añadir al Plan Semanal</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  rootContainer: {
-    flex: 1, // Esto hace que la pantalla se adapte exactamente a tu celular
-    width: '100%',
-    maxWidth: 380,
-    alignSelf: 'center',
-    backgroundColor: '#FDFBF7',
-    overflow: 'hidden',
-    position: 'relative',
-  },
   floatingHeader: {
     position: 'absolute',
     top: 40,
@@ -193,10 +170,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(253, 251, 247, 0.92)',
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#3E2723',
+    shadowColor: colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -208,35 +185,27 @@ const styles = StyleSheet.create({
   heroContainer: {
     width: '100%',
     height: 250,
-    backgroundColor: '#EAE6DF',
+    backgroundColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-  },
-  heroIconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(132, 169, 140, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   heroTag: {
     position: 'absolute',
     bottom: 14,
     left: 18,
-    backgroundColor: '#84A98C',
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   heroTagText: {
-    color: '#FFF',
+    color: colors.white,
     fontSize: 11,
     fontWeight: '700',
   },
   mainInfoCard: {
-    backgroundColor: '#FDFBF7',
+    backgroundColor: colors.background,
     paddingHorizontal: 18,
     paddingTop: 20,
     paddingBottom: 10,
@@ -247,7 +216,7 @@ const styles = StyleSheet.create({
   recipeTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#3E2723',
+    color: colors.text,
     marginBottom: 14,
     lineHeight: 28,
   },
@@ -255,9 +224,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFF',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: colors.border,
     borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -277,18 +246,18 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 10,
-    color: 'rgba(62, 39, 35, 0.6)',
+    color: colors.text60,
     fontWeight: '600',
   },
   metaValue: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#3E2723',
+    color: colors.text,
   },
   metaDivider: {
     width: 1,
     height: 24,
-    backgroundColor: '#EAE6DF',
+    backgroundColor: colors.border,
   },
   sectionContainer: {
     marginBottom: 22,
@@ -302,18 +271,18 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#3E2723',
+    color: colors.text,
     marginBottom: 12,
   },
   sectionSubtitleBadge: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#84A98C',
+    color: colors.primary,
   },
   ingredientsCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: colors.border,
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -325,13 +294,13 @@ const styles = StyleSheet.create({
   },
   ingredientBorder: {
     borderBottomWidth: 1,
-    borderColor: '#F4F1EA',
+    borderColor: colors.surfaceMuted,
   },
   checkIconBox: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: 'rgba(132, 169, 140, 0.15)',
+    backgroundColor: colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -339,15 +308,15 @@ const styles = StyleSheet.create({
   ingredientText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#3E2723',
+    color: colors.text,
   },
   stepsContainer: {
     gap: 10,
   },
   stepCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: colors.border,
     borderRadius: 16,
     padding: 12,
     flexDirection: 'row',
@@ -358,7 +327,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#EAE6DF',
+    backgroundColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
@@ -366,13 +335,13 @@ const styles = StyleSheet.create({
   stepNumberText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#3E2723',
+    color: colors.text,
   },
   stepText: {
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
-    color: '#3E2723',
+    color: colors.text,
     fontWeight: '500',
   },
   cameraButton: {
@@ -383,7 +352,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#84A98C',
+    borderColor: colors.primary,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -393,7 +362,7 @@ const styles = StyleSheet.create({
   cameraButtonText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#84A98C',
+    color: colors.primary,
   },
   floatingFooter: {
     position: 'absolute',
@@ -405,20 +374,20 @@ const styles = StyleSheet.create({
   addToPlanButton: {
     width: '100%',
     height: 52,
-    backgroundColor: '#84A98C',
+    backgroundColor: colors.primary,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#84A98C',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.45,
     shadowRadius: 8,
     elevation: 4,
   },
   addToPlanText: {
-    color: '#FFF',
+    color: colors.white,
     fontSize: 15,
     fontWeight: '800',
   },

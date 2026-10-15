@@ -3,35 +3,25 @@ import {
     StyleSheet,
     Text,
     View,
-    TouchableOpacity,
     ScrollView,
-    StatusBar,
     Switch,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { colors } from '../theme/colors';
+import { Screen, ScreenHeader } from '../components';
 
 export default function SettingsScreen({ navigation }) {
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [mealReminders, setMealReminders] = useState(true);
 
     return (
-        <View style={styles.rootContainer}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FDFBF7" />
-
+        <Screen>
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* Header Superior */}
-                <View style={styles.header}>
-                    <TouchableOpacity 
-                        style={styles.backButton} 
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Feather name="arrow-left" size={18} color="#3E2723" />
-                    </TouchableOpacity>
-                    <View>
-                        <Text style={styles.headerTitle}>Configuración</Text>
-                        <Text style={styles.headerSubtitle}>Ajustes y notificaciones</Text>
-                    </View>
-                </View>
+                <ScreenHeader
+                    title="Configuración"
+                    subtitle="Ajustes y notificaciones"
+                    onBack={() => navigation.goBack()}
+                />
 
                 {/* Grupo de Opciones */}
                 <View style={styles.sectionContainer}>
@@ -40,7 +30,7 @@ export default function SettingsScreen({ navigation }) {
                     <View style={styles.menuGroup}>
                         <View style={styles.menuItem}>
                             <View style={styles.menuIconBox}>
-                                <Feather name="bell" size={16} color="#84A98C" />
+                                <Feather name="bell" size={16} color={colors.primary} />
                             </View>
                             <View style={styles.menuTexts}>
                                 <Text style={styles.menuTitle}>Notificaciones Push</Text>
@@ -49,14 +39,14 @@ export default function SettingsScreen({ navigation }) {
                             <Switch
                                 value={notificationsEnabled}
                                 onValueChange={setNotificationsEnabled}
-                                trackColor={{ false: '#EAE6DF', true: '#84A98C' }}
-                                thumbColor="#FFF"
+                                trackColor={{ false: colors.border, true: colors.primary }}
+                                thumbColor={colors.white}
                             />
                         </View>
 
                         <View style={[styles.menuItem, { borderBottomWidth: 0 }]}>
                             <View style={styles.menuIconBox}>
-                                <Feather name="clock" size={16} color="#84A98C" />
+                                <Feather name="clock" size={16} color={colors.primary} />
                             </View>
                             <View style={styles.menuTexts}>
                                 <Text style={styles.menuTitle}>Recordatorios de Comida</Text>
@@ -65,60 +55,21 @@ export default function SettingsScreen({ navigation }) {
                             <Switch
                                 value={mealReminders}
                                 onValueChange={setMealReminders}
-                                trackColor={{ false: '#EAE6DF', true: '#84A98C' }}
-                                thumbColor="#FFF"
+                                trackColor={{ false: colors.border, true: colors.primary }}
+                                thumbColor={colors.white}
                             />
                         </View>
                     </View>
                 </View>
 
             </ScrollView>
-        </View>
+        </Screen>
     );
 }
 
 const styles = StyleSheet.create({
-    rootContainer: {
-        width: '100%',
-        maxWidth: 380,
-        height: 800,
-        minHeight: 800,
-        maxHeight: 800,
-        alignSelf: 'center',
-        backgroundColor: '#FDFBF7',
-        overflow: 'hidden',
-    },
     scrollContent: {
         paddingBottom: 30,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 24,
-        paddingBottom: 12,
-        gap: 12,
-    },
-    backButton: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        backgroundColor: '#EAE6DF',
-        borderWidth: 1,
-        borderColor: '#DDD8CE',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#3E2723',
-    },
-    headerSubtitle: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: '#3E2723',
-        opacity: 0.6,
     },
     sectionContainer: {
         paddingHorizontal: 20,
@@ -127,15 +78,15 @@ const styles = StyleSheet.create({
     sectionHeaderTitle: {
         fontSize: 10,
         fontWeight: '800',
-        color: 'rgba(62, 39, 35, 0.5)',
+        color: colors.text50,
         marginBottom: 8,
         letterSpacing: 0.5,
         marginLeft: 4,
     },
     menuGroup: {
-        backgroundColor: '#FFF',
+        backgroundColor: colors.white,
         borderWidth: 1,
-        borderColor: '#EAE6DF',
+        borderColor: colors.border,
         borderRadius: 20,
         paddingHorizontal: 16,
     },
@@ -144,13 +95,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 14,
         borderBottomWidth: 1,
-        borderColor: '#F4F1EA',
+        borderColor: colors.surfaceMuted,
     },
     menuIconBox: {
         width: 32,
         height: 32,
         borderRadius: 10,
-        backgroundColor: 'rgba(132, 169, 140, 0.12)',
+        backgroundColor: colors.primarySoft,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 12,
@@ -161,11 +112,11 @@ const styles = StyleSheet.create({
     menuTitle: {
         fontSize: 13,
         fontWeight: 'bold',
-        color: '#3E2723',
+        color: colors.text,
     },
     menuSubtitle: {
         fontSize: 11,
-        color: 'rgba(62, 39, 35, 0.6)',
+        color: colors.text60,
         marginTop: 1,
     },
 });

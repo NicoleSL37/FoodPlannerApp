@@ -1,40 +1,110 @@
 # FoodPlanner App 🥗🥘
 
-Una aplicación móvil diseñada para ayudar a los usuarios a organizar sus comidas semanales, respetar sus preferencias dietéticas y llevar un registro de los platillos que cocinan.
+Aplicación móvil (React Native + Expo) para **buscar recetas, guardar favoritas y organizar un plan semanal de comidas**, respetando la dieta y las alergias de cada usuario.
 
-## 🚀 Características (Frontend MVP)
+Proyecto del curso *Desarrollo de Aplicaciones Móviles* (proyecto 5 de la guía: FoodPlanner).
 
-- **Onboarding y Perfil Dinámico:** Registro de preferencias dietéticas (Keto, Vegano, etc.) y alergias, manejado globalmente mediante React Context.
-- **Planificador Semanal Dinámico:** Un calendario interactivo que permite visualizar y asignar desayunos, almuerzos, cenas y snacks para los próximos 15 días.
-- **Detalle de Recetas:** Pantallas descriptivas con ingredientes, paso a paso y valores nutricionales (calorías, tiempos de preparación).
-- **Registro Fotográfico:** Interfaz para registrar los platillos preparados simulando el uso de la cámara del dispositivo.
-- **Navegación Fluida:** Uso de React Navigation (Tabs y Stack) con un flujo de usuario intuitivo y sin bucles.
+## 🎯 Objetivo del avance
 
-## 🛠️ Tecnologías Utilizadas
+| Avance | Estado | Alcance |
+| ------ | ------ | ------- |
+| **APF1** (semana 5) | ✅ Entregado y mejorado | Estructura, interfaz, props, estado, formulario validado y navegación |
+| **APF2** (semana 10) | 🚧 En desarrollo | Hooks, consumo de API, estados loading/error/vacío y AsyncStorage |
+| APF3 (semana 15) | ⏳ Pendiente | Cámara, permisos y notificaciones locales |
 
-- **React Native** (Framework principal)
-- **Expo** (Entorno de desarrollo)
-- **React Navigation** (Enrutamiento)
-- **React Context API** (Manejo de estado global)
-- **Expo Vector Icons** (Iconografía)
+## ✨ Funcionalidades actuales
 
-## 📦 Instalación y Uso
+- **Registro e inicio de sesión** con validación y mensajes de error visibles bajo cada campo.
+- **Onboarding** (dieta → alergias). Desde el Perfil se pueden editar las mismas preferencias.
+- **Inicio:** búsqueda por texto/ingrediente, filtro por categoría y filtro automático según la dieta y alergias del usuario. Muestra un estado vacío si no hay resultados.
+- **Favoritos:** el corazón funciona en Inicio, Detalle y Favoritos; la lista se actualiza al instante.
+- **Detalle de receta:** ingredientes, pasos y datos nutricionales de la receta seleccionada.
+- **Plan semanal:** calendario de días y comidas; las calorías del día se calculan con lo asignado.
+- **Registro de preparación:** pantalla de cámara (simulada hasta el APF3) asociada a la receta que se cocina.
+- **Perfil y ajustes:** cierre de sesión que limpia el estado del usuario.
 
-Sigue estos pasos para correr el proyecto de manera local:
+## 🧱 Arquitectura
 
-1. Clona este repositorio:
-   git clone https://github.com/NicoleSL37/FoodPlannerApp.git
+```
+App.js                    # Punto de entrada: UserProvider + navegación
+src/
+├── components/           # Componentes reutilizables (ver tabla)
+├── context/              # Estado global del usuario (UserContext)
+├── data/                 # Recetas locales (se reemplazará por la API en el APF2)
+├── navigation/           # Stack + Tabs (AppNavigator)
+├── screens/              # Pantallas de la app
+├── theme/                # Paleta de colores única (colors.js)
+└── utils/                # Validaciones y filtros de recetas
+```
 
-2. Instala las dependencias:
-   npm install
+### Componentes reutilizables
 
-3. Levanta el entorno de Expo:
-   npx expo start
+| Componente | Para qué sirve | Props principales |
+| ---------- | -------------- | ----------------- |
+| `Screen` | Contenedor base de cada pantalla (fondo, StatusBar, ancho máximo, `flex: 1`) | `style` |
+| `ScreenHeader` | Cabecera con botón "volver", título y subtítulo | `title`, `subtitle`, `onBack`, `right` |
+| `PrimaryButton` | Botón principal verde | `title`, `onPress`, `icon`, `size` (`md`/`lg`), `disabled` |
+| `Chip` | Opción seleccionable (dietas, alergias, categorías, filtros) | `label`, `selected`, `onPress`, `size` (`lg`/`md`/`sm`) |
+| `FormInput` | Campo con etiqueta, ícono, error y mostrar/ocultar contraseña | `label`, `icon`, `error`, `secureTextEntry` + props de `TextInput` |
+| `BrandLogo` | Logo y nombre de la app | `subtitle`, `compact` |
+| `EmptyState` | Mensaje para listas vacías o sin resultados | `icon`, `title`, `message` |
+| `OnboardingStep` | Plantilla de cada paso del onboarding (puntos, título, botón) | `step`, `showDots`, `title`, `buttonLabel`, `onNext`, `feedback` |
+| `RecipeImage` | Foto de receta con spinner de carga y ícono de respaldo si no hay imagen o falla | `uri`, `icon` |
+| `RecipeCard` | Tarjeta de receta con favorito | `title`, `time`, `calories`, `tag`, `isFavorite`, `onToggleFavorite`, `onViewRecipe` |
 
-4. Escanea el código QR con la app **Expo Go** (Android/iOS) o presiona "a" para abrir en el emulador de Android.
+Todos se importan desde un solo lugar: `import { Screen, Chip } from '../components';`
 
-## 🚧 Próximos Pasos (Roadmap)
+**Flujo de navegación:** `Login ⇄ Register → DietaryPreferences → Allergies → MainTabs (Inicio · Plan · Favoritos · Perfil)` y desde las pestañas: `RecipeDetail`, `PreparationRecord`, `History`, `Settings`.
 
-- [ ] Integración de base de datos en la nube (Supabase).
-- [ ] Autenticación de usuarios (Login/Registro).
-- [ ] Consumo de API real para la carga dinámica de recetas.
+**Estado global (`UserContext`):** nombre, correo, dieta, alergias y favoritos, más `toggleFavorite` y `resetUser`.
+
+**Estilos:** ningún color se escribe a mano en las pantallas; todos salen de `src/theme/colors.js`.
+
+## 🛠️ Tecnologías
+
+- React Native 0.86 · React 19 · Expo 57
+- React Navigation (Native Stack + Bottom Tabs)
+- React Context API + hooks (`useState`, `useContext`, `useMemo`, `useCallback`, `useEffect`, `useRef`)
+- `@expo/vector-icons`
+
+## ▶️ Instalación y ejecución
+
+```bash
+git clone https://github.com/NicoleSL37/FoodPlannerApp.git
+cd FoodPlannerApp
+npm install
+npx expo start
+```
+
+Escanea el QR con **Expo Go** (Android/iOS) o presiona `a` para abrir el emulador de Android.
+
+## 🧪 Cómo probar el flujo principal
+
+1. Crea una cuenta (prueba enviar el formulario vacío para ver las validaciones).
+2. Elige una dieta (por ejemplo *Vegano*) y una alergia (por ejemplo *Sin Gluten*).
+3. En **Inicio**, verifica que solo aparecen recetas compatibles; prueba la búsqueda y las categorías.
+4. Marca recetas con el corazón y revisa la pestaña **Favoritos**.
+5. Abre una receta, usa **¡Ya lo cociné!** y revisa el registro de preparación.
+6. En **Perfil**, cambia tus preferencias y cierra sesión.
+
+## 📸 Evidencias
+
+> Agrega aquí las capturas en `docs/capturas/` y enlázalas, por ejemplo:
+> `![Inicio](docs/capturas/inicio.png)`
+
+## 🚧 Roadmap
+
+**APF2**
+- [ ] Servicio de API de recetas (`src/services`) con `fetch`
+- [ ] Estados de carga, error (con reintento) y vacío en Inicio y Detalle
+- [ ] Persistencia con AsyncStorage (`src/storage`): sesión, preferencias, favoritos, plan semanal e historial
+- [ ] Plan semanal editable (asignar recetas a cada comida)
+
+**APF3**
+- [ ] Cámara real para registrar el platillo, con manejo de permisos
+- [ ] Notificaciones locales de comidas planificadas
+- [ ] Manejo de errores y logging básico
+
+## 📄 Licencia
+
+MIT

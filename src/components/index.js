@@ -1,0 +1,11 @@
+// Punto único de importación: import { Screen, Chip } from '../components';
+export { default as Screen } from './Screen';
+export { default as ScreenHeader } from './ScreenHeader';
+export { default as PrimaryButton } from './PrimaryButton';
+export { default as Chip } from './Chip';
+export { default as FormInput } from './FormInput';
+export { default as BrandLogo } from './BrandLogo';
+export { default as EmptyState } from './EmptyState';
+export { default as RecipeCard } from './RecipeCard';
+export { default as OnboardingStep } from './OnboardingStep';
+export { default as RecipeImage } from './RecipeImage';

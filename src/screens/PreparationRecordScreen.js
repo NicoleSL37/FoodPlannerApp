@@ -5,42 +5,34 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  StatusBar,
+  Alert,
 } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
+import { colors } from '../theme/colors';
+import { Screen, ScreenHeader } from '../components';
 
-export default function PreparationRecordScreen({ navigation }) {
+export default function PreparationRecordScreen({ route, navigation }) {
+  const recipeTitle = route.params?.recipeTitle || 'Tu platillo';
   const [photoCaptured, setPhotoCaptured] = useState(false);
 
   const handleBack = () => {
-    console.log('Volviendo...');
     navigation.goBack();
   };
 
   const handleCapture = () => {
-    console.log('Foto capturada');
     setPhotoCaptured(true);
-    alert('¡Foto de preparación capturada con éxito!');
+    Alert.alert('Foto', '¡Foto de preparación capturada con éxito!');
   };
 
   const handleSaveToHistory = () => {
-    console.log('Guardando en historial...');
-    alert('¡Registrado en tu historial!');
+    Alert.alert('Historial', '¡Registrado en tu historial!');
     // navigation.navigate('History');
   };
 
   return (
-    <View style={styles.rootContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FDFBF7" />
+    <Screen>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Feather name="chevron-left" size={20} color="#3E2723" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Registro de Preparación</Text>
-        <View style={styles.spacer} />
-      </View>
+      <ScreenHeader title="Registro de Preparación" onBack={handleBack} />
 
       {/* Contenido Principal */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -49,15 +41,15 @@ export default function PreparationRecordScreen({ navigation }) {
         <View style={styles.currentRecipeCard}>
           <View style={styles.currentRecipeLeft}>
             <View style={styles.checkCircleBox}>
-              <Feather name="check" size={14} color="#FFF" style={{ strokeWidth: 3 }} />
+              <Feather name="check" size={14} color={colors.white} style={{ strokeWidth: 3 }} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.cookingLabel}>Cocinando</Text>
-              <Text style={styles.recipeNameText} numberOfLines={1}>Bowl de Avena con Frutas</Text>
+              <Text style={styles.recipeNameText} numberOfLines={1}>{recipeTitle}</Text>
             </View>
           </View>
           <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>Paso 3/3</Text>
+            <Text style={styles.stepBadgeText}>Último paso</Text>
           </View>
         </View>
 
@@ -94,7 +86,7 @@ export default function PreparationRecordScreen({ navigation }) {
         {/* Controles de Cámara */}
         <View style={styles.cameraControlsRow}>
           <TouchableOpacity style={styles.controlCircularBtn}>
-            <Feather name="image" size={20} color="#3E2723" />
+            <Feather name="image" size={20} color={colors.text} />
           </TouchableOpacity>
 
           {/* Obturador */}
@@ -105,7 +97,7 @@ export default function PreparationRecordScreen({ navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.controlCircularBtn}>
-            <Feather name="refresh-cw" size={19} color="#3E2723" />
+            <Feather name="refresh-cw" size={19} color={colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -114,56 +106,15 @@ export default function PreparationRecordScreen({ navigation }) {
       {/* Botón Guardar Anclado Abajo */}
       <View style={styles.floatingFooter}>
         <TouchableOpacity style={styles.saveHistoryButton} onPress={handleSaveToHistory}>
-          <Feather name="save" size={18} color="#3E2723" style={{ marginRight: 8 }} />
+          <Feather name="save" size={18} color={colors.text} style={{ marginRight: 8 }} />
           <Text style={styles.saveHistoryText}>Guardar en mi Historial</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  rootContainer: {
-        flex: 1, 
-        backgroundColor: '#FDFBF7',
-        width: '100%',
-        maxWidth: 380,
-        alignSelf: 'center',
-    },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#EAE6DF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#3E2723',
-    textAlign: 'center',
-    flex: 1,
-  },
-  spacer: {
-    width: 40,
-    height: 40,
-  },
   scrollContent: {
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -171,7 +122,7 @@ const styles = StyleSheet.create({
   },
   currentRecipeCard: {
     width: '100%',
-    backgroundColor: '#EAE6DF',
+    backgroundColor: colors.border,
     borderRadius: 16,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -180,7 +131,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#DDD8CE',
+    borderColor: colors.borderStrong,
   },
   currentRecipeLeft: {
     flexDirection: 'row',
@@ -193,20 +144,20 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#84A98C',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cookingLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: 'rgba(62, 39, 35, 0.6)',
+    color: colors.text60,
     textTransform: 'uppercase',
   },
   recipeNameText: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#3E2723',
+    color: colors.text,
   },
   stepBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
@@ -217,20 +168,20 @@ const styles = StyleSheet.create({
   stepBadgeText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#84A98C',
+    color: colors.primary,
   },
   cameraViewfinder: {
     width: '100%',
     height: 360,
-    backgroundColor: '#2C2C2C',
+    backgroundColor: colors.dark,
     borderRadius: 26,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#3E3E3E',
-    shadowColor: '#000',
+    borderColor: colors.dark2,
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -259,7 +210,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#34D399',
+    backgroundColor: colors.success,
   },
   liveText: {
     fontSize: 11,
@@ -316,12 +267,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFF',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -332,12 +283,12 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 35,
     borderWidth: 5,
-    borderColor: '#84A98C',
-    backgroundColor: '#FFF',
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
     padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -347,9 +298,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 30,
-    backgroundColor: '#FFF',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -357,7 +308,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(132, 169, 140, 0.2)',
+    backgroundColor: colors.primaryMid,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -371,14 +322,14 @@ const styles = StyleSheet.create({
   saveHistoryButton: {
     width: '100%',
     height: 52,
-    backgroundColor: '#EAE6DF',
+    backgroundColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DDD8CE',
+    borderColor: colors.borderStrong,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
@@ -387,6 +338,6 @@ const styles = StyleSheet.create({
   saveHistoryText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#3E2723',
+    color: colors.text,
   },
 });
