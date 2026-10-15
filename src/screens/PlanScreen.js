@@ -5,9 +5,11 @@ import {
     View,
     TouchableOpacity,
     ScrollView,
-    StatusBar,
+    Alert,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { colors } from '../theme/colors';
+import { Screen } from '../components';
 
 // 1. GENERADOR DE FECHAS
 const generateDates = () => {
@@ -56,6 +58,11 @@ const MEAL_SLOTS = [
 ];
 
 
+const DAILY_KCAL_GOAL = 1800;
+
+// 1480 -> "1,480"
+const formatNumber = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
 export default function PlanScreen({ navigation }) {
     const [days, setDays] = useState([]);
     const [selectedDate, setSelectedDate] = useState(null);
@@ -89,13 +96,16 @@ export default function PlanScreen({ navigation }) {
         }
     }, [selectedDate]);
 
-    const handleComplete = () => {
-        navigation.navigate('PreparationRecord');
+    // Calorías del día calculadas con lo que realmente está asignado
+    const totalKcal = Object.values(dailyPlan).reduce((sum, meal) => sum + (meal ? meal.kcal : 0), 0);
+    const kcalPercent = Math.min(100, Math.round((totalKcal / DAILY_KCAL_GOAL) * 100));
+
+    const handleComplete = (mealName) => {
+        navigation.navigate('PreparationRecord', { recipeTitle: mealName });
     };
 
     return (
-        <View style={styles.rootContainer}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FDFBF7" />
+        <Screen>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 {/* Header */}
@@ -105,7 +115,7 @@ export default function PlanScreen({ navigation }) {
                         <Text style={styles.subtitle}>Organiza tus comidas</Text>
                     </View>
                     <View style={styles.weekBadge}>
-                        <Feather name="calendar" size={12} color="#84A98C" />
+                        <Feather name="calendar" size={12} color={colors.primary} />
                         <Text style={styles.weekBadgeText}>Semana Actual</Text>
                     </View>
                 </View>
@@ -134,15 +144,15 @@ export default function PlanScreen({ navigation }) {
                 <View style={styles.nutritionSummary}>
                     <View style={styles.nutritionLeft}>
                         <View style={styles.nutritionIconBox}>
-                            <Ionicons name="flame" size={16} color="#84A98C" />
+                            <Ionicons name="flame" size={16} color={colors.primary} />
                         </View>
                         <View>
                             <Text style={styles.nutritionLabel}>Meta Calórica Diaria</Text>
-                            <Text style={styles.nutritionValue}>1,480 / 1,800 kcal</Text>
+                            <Text style={styles.nutritionValue}>{formatNumber(totalKcal)} / {formatNumber(DAILY_KCAL_GOAL)} kcal</Text>
                         </View>
                     </View>
                     <View style={styles.nutritionPercentageBox}>
-                        <Text style={styles.nutritionPercentageText}>82%</Text>
+                        <Text style={styles.nutritionPercentageText}>{kcalPercent}%</Text>
                     </View>
                 </View>
 
@@ -165,7 +175,7 @@ export default function PlanScreen({ navigation }) {
                                     <View style={styles.mealCard}>
                                         <View style={styles.mealCardLeft}>
                                             <View style={styles.mealIconBox}>
-                                                <Ionicons name={mealData.icon || slot.icon} size={20} color="#84A98C" />
+                                                <Ionicons name={mealData.icon || slot.icon} size={20} color={colors.primary} />
                                             </View>
                                             <View style={styles.mealInfo}>
                                                 <Text style={styles.mealName} numberOfLines={1}>{mealData.name}</Text>
@@ -176,16 +186,16 @@ export default function PlanScreen({ navigation }) {
                                                 </View>
                                             </View>
                                         </View>
-                                        <TouchableOpacity style={styles.completeBtn} onPress={handleComplete}>
-                                            <Feather name="check-circle" size={14} color="#84A98C" />
+                                        <TouchableOpacity style={styles.completeBtn} onPress={() => handleComplete(mealData.name)}>
+                                            <Feather name="check-circle" size={14} color={colors.primary} />
                                             <Text style={styles.completeBtnText}>Completar</Text>
                                         </TouchableOpacity>
                                     </View>
                                 ) : (
                                     /* TARJETA VACÍA */
-                                    <TouchableOpacity style={styles.emptyMealCard} onPress={() => alert(`Explorar recetas para ${slot.title}`)}>
+                                    <TouchableOpacity style={styles.emptyMealCard} onPress={() => Alert.alert('Próximamente', `Pronto podrás elegir una receta para ${slot.title.toLowerCase()}.`)}>
                                         <View style={styles.emptyIconBox}>
-                                            <Feather name="plus" size={16} color="#84A98C" />
+                                            <Feather name="plus" size={16} color={colors.primary} />
                                         </View>
                                         <Text style={styles.emptyMealText}>Añadir {slot.title}</Text>
                                     </TouchableOpacity>
@@ -195,18 +205,11 @@ export default function PlanScreen({ navigation }) {
                     })}
                 </View>
             </ScrollView>
-        </View>
+        </Screen>
     );
 }
 
 const styles = StyleSheet.create({
-    rootContainer: {
-        flex: 1, 
-        backgroundColor: '#FDFBF7',
-        width: '100%',
-        maxWidth: 380,
-        alignSelf: 'center',
-    },
     scrollContent: {
         paddingBottom: 120, 
     },
@@ -221,13 +224,13 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: '800',
-        color: '#3E2723',
+        color: colors.text,
         lineHeight: 28,
     },
     subtitle: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: '#84A98C',
+        color: colors.primary,
         marginTop: 4,
     },
     weekBadge: {
@@ -238,13 +241,13 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(132, 169, 140, 0.2)',
+        borderColor: colors.primaryMid,
         gap: 6,
     },
     weekBadgeText: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#3E2723',
+        color: colors.text,
     },
     calendarContainer: {
         marginTop: 8,
@@ -263,11 +266,11 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     dayCardInactive: {
-        backgroundColor: '#EAE6DF',
+        backgroundColor: colors.border,
     },
     dayCardActive: {
-        backgroundColor: '#84A98C',
-        shadowColor: '#84A98C',
+        backgroundColor: colors.primary,
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
@@ -278,7 +281,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     dayNameInactive: {
-        color: 'rgba(62, 39, 35, 0.7)',
+        color: colors.text70,
     },
     dayNameActive: {
         color: 'rgba(255, 255, 255, 0.9)',
@@ -290,27 +293,27 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     dayDateInactive: {
-        color: '#3E2723',
+        color: colors.text,
     },
     dayDateActive: {
-        color: '#FFF',
+        color: colors.white,
         fontWeight: '800',
     },
     activeDot: {
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: '#FFF',
+        backgroundColor: colors.white,
         marginTop: 4,
     },
     nutritionSummary: {
         marginHorizontal: 20,
         marginBottom: 20,
         padding: 14,
-        backgroundColor: '#FFF',
+        backgroundColor: colors.white,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#EAE6DF',
+        borderColor: colors.border,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -324,19 +327,19 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 12,
-        backgroundColor: 'rgba(132, 169, 140, 0.15)',
+        backgroundColor: colors.primaryTint,
         alignItems: 'center',
         justifyContent: 'center',
     },
     nutritionLabel: {
         fontSize: 11,
         fontWeight: '600',
-        color: 'rgba(62, 39, 35, 0.6)',
+        color: colors.text60,
     },
     nutritionValue: {
         fontSize: 14,
         fontWeight: '800',
-        color: '#3E2723',
+        color: colors.text,
     },
     nutritionPercentageBox: {
         backgroundColor: 'rgba(132, 169, 140, 0.1)',
@@ -347,7 +350,7 @@ const styles = StyleSheet.create({
     nutritionPercentageText: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#84A98C',
+        color: colors.primary,
     },
     mealsContainer: {
         paddingHorizontal: 20,
@@ -365,29 +368,29 @@ const styles = StyleSheet.create({
     mealTitle: {
         fontSize: 12,
         fontWeight: '800',
-        color: '#3E2723',
+        color: colors.text,
         letterSpacing: 0.5,
     },
     mealTime: {
         fontSize: 11,
         fontWeight: '600',
-        color: '#84A98C',
+        color: colors.primary,
     },
     mealTimeEmpty: {
         fontSize: 11,
         fontWeight: '500',
-        color: 'rgba(62, 39, 35, 0.4)',
+        color: colors.text40,
     },
     mealCard: {
-        backgroundColor: '#FFF',
+        backgroundColor: colors.white,
         borderRadius: 16,
         padding: 14,
         borderWidth: 1,
-        borderColor: '#EAE6DF',
+        borderColor: colors.border,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        shadowColor: '#000',
+        shadowColor: colors.black,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.02,
         shadowRadius: 8,
@@ -414,7 +417,7 @@ const styles = StyleSheet.create({
     mealName: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: '#3E2723',
+        color: colors.text,
     },
     mealMeta: {
         flexDirection: 'row',
@@ -425,29 +428,29 @@ const styles = StyleSheet.create({
     mealMetaText: {
         fontSize: 12,
         fontWeight: '500',
-        color: 'rgba(62, 39, 35, 0.7)',
+        color: colors.text70,
     },
     mealMetaDot: {
         fontSize: 10,
-        color: 'rgba(62, 39, 35, 0.3)',
+        color: colors.text30,
     },
     mealMetaTime: {
         fontSize: 11,
         fontWeight: '600',
-        color: '#84A98C',
+        color: colors.primary,
     },
     completeBtn: {
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 16,
-        backgroundColor: '#EAE6DF',
+        backgroundColor: colors.border,
         alignItems: 'center',
         justifyContent: 'center',
     },
     completeBtnText: {
         fontSize: 10,
         fontWeight: 'bold',
-        color: '#84A98C',
+        color: colors.primary,
         marginTop: 2,
     },
     emptyMealCard: {
@@ -456,7 +459,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         borderWidth: 2,
         borderStyle: 'dashed',
-        borderColor: '#EAE6DF',
+        borderColor: colors.border,
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
@@ -465,15 +468,15 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#FFF',
+        backgroundColor: colors.white,
         borderWidth: 1,
-        borderColor: '#EAE6DF',
+        borderColor: colors.border,
         alignItems: 'center',
         justifyContent: 'center',
     },
     emptyMealText: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: 'rgba(62, 39, 35, 0.7)',
+        color: colors.text70,
     },
 });
