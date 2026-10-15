@@ -1,19 +1,34 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { colors } from '../theme/colors';
 
-export default function RecipeCard({ title, time, calories, tag, icon, category, onViewRecipe }) {
+export default function RecipeCard({
+    title,
+    time,
+    calories,
+    tag,
+    icon,
+    category,
+    isFavorite = false,
+    onToggleFavorite,
+    onViewRecipe,
+}) {
     return (
         <View style={styles.recipeCard}>
             {/* Imagen / Ilustración Placeholder */}
             <View style={styles.cardImageContainer}>
-                <Feather name={icon || 'coffee'} size={34} color="#84A98C" />
+                <Feather name={icon || 'coffee'} size={34} color={colors.primary} />
                 <View style={styles.tagBadge}>
                     <Text style={styles.tagBadgeText}>{tag}</Text>
                 </View>
-                {/* Botón Favorito Activo */}
-                <TouchableOpacity style={styles.heartButton}>
-                    <Ionicons name="heart" size={18} color="#E63946" />
+                {/* Botón Favorito */}
+                <TouchableOpacity
+                    style={styles.heartButton}
+                    onPress={onToggleFavorite}
+                    accessibilityLabel={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+                >
+                    <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={18} color={colors.danger} />
                 </TouchableOpacity>
             </View>
 
@@ -23,19 +38,19 @@ export default function RecipeCard({ title, time, calories, tag, icon, category,
                 
                 <View style={styles.recipeMeta}>
                     <View style={styles.metaItem}>
-                        <Feather name="clock" size={12} color="#84A98C" style={{ marginRight: 4 }} />
+                        <Feather name="clock" size={12} color={colors.primary} style={{ marginRight: 4 }} />
                         <Text style={styles.metaText}>{time}</Text>
                     </View>
                     <Text style={styles.metaDot}>•</Text>
                     <View style={styles.metaItem}>
-                        <Ionicons name="flame" size={12} color="#E76F51" style={{ marginRight: 4 }} />
+                        <Ionicons name="flame" size={12} color={colors.accent} style={{ marginRight: 4 }} />
                         <Text style={styles.metaText}>{calories}</Text>
                     </View>
                 </View>
 
                 <View style={styles.cardFooter}>
                     <Text style={styles.categoryLabel}>{category}</Text>
-                    <TouchableOpacity style={styles.viewButton} onPress={onViewRecipe}>
+                    <TouchableOpacity style={styles.viewButton} onPress={onViewRecipe} accessibilityLabel={`Ver receta ${title}`}>
                         <Text style={styles.viewButtonText}>Ver Receta</Text>
                     </TouchableOpacity>
                 </View>
@@ -46,12 +61,12 @@ export default function RecipeCard({ title, time, calories, tag, icon, category,
 
 const styles = StyleSheet.create({
     recipeCard: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: colors.white,
         borderRadius: 18,
         padding: 12,
         borderWidth: 1,
-        borderColor: '#EAE6DF',
-        shadowColor: '#3E2723',
+        borderColor: colors.border,
+        shadowColor: colors.text,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.03,
         shadowRadius: 8,
@@ -61,7 +76,7 @@ const styles = StyleSheet.create({
     cardImageContainer: {
         width: '100%',
         height: 120,
-        backgroundColor: '#EAE6DF',
+        backgroundColor: colors.border,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
@@ -72,13 +87,13 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 8,
         left: 8,
-        backgroundColor: 'rgba(62, 39, 35, 0.75)',
+        backgroundColor: colors.text75,
         paddingHorizontal: 8,
         paddingVertical: 3,
         borderRadius: 8,
     },
     tagBadgeText: {
-        color: '#FDFBF7',
+        color: colors.background,
         fontSize: 10,
         fontWeight: '700',
     },
@@ -92,7 +107,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(253, 251, 247, 0.95)',
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#000',
+        shadowColor: colors.black,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 4,
@@ -104,7 +119,7 @@ const styles = StyleSheet.create({
     recipeTitle: {
         fontSize: 15,
         fontWeight: '700',
-        color: '#3E2723',
+        color: colors.text,
         lineHeight: 20,
     },
     recipeMeta: {
@@ -119,12 +134,12 @@ const styles = StyleSheet.create({
     },
     metaText: {
         fontSize: 12,
-        color: 'rgba(62, 39, 35, 0.7)',
+        color: colors.text70,
         fontWeight: '500',
     },
     metaDot: {
         fontSize: 12,
-        color: 'rgba(62, 39, 35, 0.4)',
+        color: colors.text40,
     },
     cardFooter: {
         marginTop: 10,
@@ -138,16 +153,16 @@ const styles = StyleSheet.create({
     categoryLabel: {
         fontSize: 11,
         fontWeight: '600',
-        color: '#84A98C',
+        color: colors.primary,
     },
     viewButton: {
-        backgroundColor: '#84A98C',
+        backgroundColor: colors.primary,
         paddingHorizontal: 14,
         paddingVertical: 6,
         borderRadius: 8,
     },
     viewButtonText: {
-        color: '#FFFFFF',
+        color: colors.white,
         fontSize: 12,
         fontWeight: '700',
     },

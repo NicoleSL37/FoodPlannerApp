@@ -5,9 +5,10 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  StatusBar,
 } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
+import { colors } from '../theme/colors';
+import { Screen, ScreenHeader } from '../components';
 
 export default function HistoryScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Plan Semanal');
@@ -34,22 +35,13 @@ export default function HistoryScreen({ navigation }) {
   const filteredHistory = historyData.filter(item => item.type === activeTab);
 
   const handleBack = () => {
-    console.log('Volviendo atrás...');
     navigation.goBack();
   };
 
   return (
-    <View style={styles.rootContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FDFBF7" />
+    <Screen>
 
-      {/* Header Superior */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Feather name="chevron-left" size={20} color="#3E2723" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Mi Historial</Text>
-        <View style={styles.spacer} />
-      </View>
+      <ScreenHeader title="Mi Historial" onBack={handleBack} />
 
       {/* Filtros: Chips 50% / 50% */}
       <View style={styles.filterWrapper}>
@@ -58,7 +50,7 @@ export default function HistoryScreen({ navigation }) {
             style={[styles.filterChip, activeTab === 'Plan Semanal' ? styles.activeChip : styles.inactiveChip]}
             onPress={() => setActiveTab('Plan Semanal')}
           >
-            <Feather name="calendar" size={14} color={activeTab === 'Plan Semanal' ? '#FFF' : '#3E2723'} />
+            <Feather name="calendar" size={14} color={activeTab === 'Plan Semanal' ? colors.white : colors.text} />
             <Text style={[styles.filterChipText, activeTab === 'Plan Semanal' ? styles.activeChipText : styles.inactiveChipText]}>
               Plan Semanal
             </Text>
@@ -68,7 +60,7 @@ export default function HistoryScreen({ navigation }) {
             style={[styles.filterChip, activeTab === 'Cocina Libre' ? styles.activeChip : styles.inactiveChip]}
             onPress={() => setActiveTab('Cocina Libre')}
           >
-            <Feather name="coffee" size={14} color={activeTab === 'Cocina Libre' ? '#FFF' : '#3E2723'} style={{ opacity: activeTab === 'Cocina Libre' ? 1 : 0.7 }} />
+            <Feather name="coffee" size={14} color={activeTab === 'Cocina Libre' ? colors.white : colors.text} style={{ opacity: activeTab === 'Cocina Libre' ? 1 : 0.7 }} />
             <Text style={[styles.filterChipText, activeTab === 'Cocina Libre' ? styles.activeChipText : styles.inactiveChipText]}>
               Cocina Libre
             </Text>
@@ -113,11 +105,11 @@ export default function HistoryScreen({ navigation }) {
 
                 <View style={styles.cardFooterBottom}>
                   <View style={styles.metaInfo}>
-                    <Feather name="clock" size={14} color="#84A98C" />
+                    <Feather name="clock" size={14} color={colors.primary} />
                     <Text style={styles.metaText}>{item.time}</Text>
                   </View>
                   <View style={styles.metaInfo}>
-                    <Feather name={item.type === 'Plan Semanal' ? 'check-circle' : 'coffee'} size={14} color="#84A98C" />
+                    <Feather name={item.type === 'Plan Semanal' ? 'check-circle' : 'coffee'} size={14} color={colors.primary} />
                     <Text style={styles.metaTypeText}>{item.type}</Text>
                   </View>
                 </View>
@@ -128,7 +120,7 @@ export default function HistoryScreen({ navigation }) {
           /* Estado Vacío por si el filtro no tiene elementos */
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconBox}>
-              <Feather name="camera-off" size={28} color="rgba(62, 39, 35, 0.5)" />
+              <Feather name="camera-off" size={28} color={colors.text50} />
             </View>
             <Text style={styles.emptyTitle}>Sin preparaciones aún</Text>
             <Text style={styles.emptySubtitle}>
@@ -138,48 +130,11 @@ export default function HistoryScreen({ navigation }) {
         )}
 
       </ScrollView>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  rootContainer: {
-    width: '100%',
-    maxWidth: 380,
-    height: 800,
-    minHeight: 800,
-    maxHeight: 800,
-    alignSelf: 'center',
-    backgroundColor: '#FDFBF7',
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EAE6DF',
-    borderWidth: 1,
-    borderColor: '#DDD8CE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#3E2723',
-  },
-  spacer: {
-    width: 40,
-    height: 40,
-  },
   filterWrapper: {
     paddingHorizontal: 20,
     paddingBottom: 12,
@@ -203,8 +158,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   activeChip: {
-    backgroundColor: '#84A98C',
-    shadowColor: '#000',
+    backgroundColor: colors.primary,
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -218,10 +173,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   activeChipText: {
-    color: '#FFF',
+    color: colors.white,
   },
   inactiveChipText: {
-    color: '#3E2723',
+    color: colors.text,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -237,12 +192,12 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: 'rgba(62, 39, 35, 0.7)',
+    color: colors.text70,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   summaryBadge: {
-    backgroundColor: 'rgba(132, 169, 140, 0.15)',
+    backgroundColor: colors.primaryTint,
     paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: 12,
@@ -250,7 +205,7 @@ const styles = StyleSheet.create({
   summaryBadgeText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#84A98C',
+    color: colors.primary,
   },
   historyCard: {
     width: '100%',
@@ -258,10 +213,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#DDD8CE',
-    backgroundColor: '#2C2C2C',
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.dark,
     position: 'relative',
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -269,7 +224,7 @@ const styles = StyleSheet.create({
   },
   cardPhotoPlaceholder: {
     flex: 1,
-    backgroundColor: '#2C2C2C',
+    backgroundColor: colors.dark,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -308,7 +263,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#84A98C',
+    backgroundColor: colors.primary,
   },
   completedTagText: {
     fontSize: 10,
@@ -334,11 +289,11 @@ const styles = StyleSheet.create({
   recipeTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#3E2723',
+    color: colors.text,
     letterSpacing: -0.3,
   },
   categoryBadge: {
-    backgroundColor: '#84A98C',
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -346,7 +301,7 @@ const styles = StyleSheet.create({
   categoryBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#FFF',
+    color: colors.white,
     textTransform: 'uppercase',
   },
   cardFooterBottom: {
@@ -362,12 +317,12 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     fontWeight: '500',
-    color: 'rgba(62, 39, 35, 0.7)',
+    color: colors.text70,
   },
   metaTypeText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#84A98C',
+    color: colors.primary,
   },
   emptyContainer: {
     paddingVertical: 60,
@@ -379,7 +334,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#EAE6DF',
+    backgroundColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -387,12 +342,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#3E2723',
+    color: colors.text,
     marginBottom: 4,
   },
   emptySubtitle: {
     fontSize: 12,
-    color: 'rgba(62, 39, 35, 0.6)',
+    color: colors.text60,
     textAlign: 'center',
     maxWidth: 220,
     lineHeight: 18,
