@@ -9,28 +9,57 @@ import {
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { UserContext } from '../context/UserContext';
-import { RECIPES, getRecipeById } from '../data/recipes';
 import { colors } from '../theme/colors';
-import { Screen, RecipeImage } from '../components';
+import { Screen, RecipeImage, LoadingState, ErrorState } from '../components';
+import { categoryLabel } from '../data/categories';
+import { areaLabel } from '../data/areas';
+import { getAllergyConflicts } from '../utils/recipeFilters';
+import { useRecipe } from '../hooks/useRecipes';
 
 export default function RecipeDetailScreen({ route, navigation }) {
-  const { favorites, toggleFavorite } = useContext(UserContext);
+  const { toggleFavorite, isFavorite, allergies } = useContext(UserContext);
 
-  // La receta llega por parámetro (recipeId). Si no llega, mostramos la primera.
-  const recipe = getRecipeById(route.params?.recipeId) || RECIPES[0];
-  const { ingredients, steps } = recipe;
-  const isFavorite = favorites.includes(recipe.id);
+  // Desde la lista llega la receta parcial (nombre y foto); los ingredientes y pasos se piden a la API
+  const { recipeId, recipe: initialRecipe } = route.params || {};
+  const { recipe, status, error, reload } = useRecipe(recipeId, initialRecipe);
 
   const handleBack = () => {
     navigation.goBack();
   };
+
+  const backButton = (
+    <TouchableOpacity style={styles.circularButton} onPress={handleBack} accessibilityLabel="Volver">
+      <Feather name="chevron-left" size={20} color={colors.text} style={{ marginRight: 2 }} />
+    </TouchableOpacity>
+  );
+
+  // Sin ningún dato todavía: pantalla de carga o de error
+  if (!recipe) {
+    return (
+      <Screen>
+        <View style={styles.floatingHeader}>{backButton}</View>
+        <View style={styles.fallback}>
+          {status === 'error' ? (
+            <ErrorState title="No pudimos cargar la receta" message={error} onRetry={reload} />
+          ) : (
+            <LoadingState message="Cargando receta..." />
+          )}
+        </View>
+      </Screen>
+    );
+  }
+
+  const favorite = isFavorite(recipe.id);
+  const isLoaded = !recipe.isPartial;
+  const { ingredients, steps } = recipe;
+  const conflicts = isLoaded ? getAllergyConflicts(recipe.allergens, allergies) : [];
 
   const handleCameraRecord = () => {
     navigation.navigate('PreparationRecord', { recipeTitle: recipe.title });
   };
 
   const handleAddToPlan = () => {
-    Alert.alert('Plan semanal', '¡Receta añadida a tu plan semanal!');
+    Alert.alert('Plan semanal', 'Pronto podrás añadir recetas a tu plan semanal.');
   };
 
   return (
@@ -38,22 +67,26 @@ export default function RecipeDetailScreen({ route, navigation }) {
 
       {/* Header Flotante superior */}
       <View style={styles.floatingHeader}>
-        <TouchableOpacity style={styles.circularButton} onPress={handleBack} accessibilityLabel="Volver">
-          <Feather name="chevron-left" size={20} color={colors.text} style={{ marginRight: 2 }} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.circularButton} onPress={() => toggleFavorite(recipe.id)} accessibilityLabel={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}>
-          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={18} color={colors.danger} />
+        {backButton}
+        <TouchableOpacity
+          style={styles.circularButton}
+          onPress={() => toggleFavorite(recipe)}
+          accessibilityLabel={favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+        >
+          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={18} color={colors.danger} />
         </TouchableOpacity>
       </View>
 
       {/* ScrollView principal */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Hero Imagen / Platillo */}
         <View style={styles.heroContainer}>
           <RecipeImage uri={recipe.image} icon={recipe.icon} />
           <View style={styles.heroTag}>
-            <Text style={styles.heroTagText}>{recipe.category} · {recipe.tag}</Text>
+            <Text style={styles.heroTagText}>
+              {categoryLabel(recipe.category)}{areaLabel(recipe.area) ? ` · ${areaLabel(recipe.area)}` : ''}
+            </Text>
           </View>
         </View>
 
@@ -65,11 +98,11 @@ export default function RecipeDetailScreen({ route, navigation }) {
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <View style={[styles.metaIconBox, { backgroundColor: colors.primarySoft }]}>
-                <Feather name="clock" size={14} color={colors.primary} />
+                <Feather name="tag" size={14} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.metaLabel}>Tiempo</Text>
-                <Text style={styles.metaValue}>{recipe.time}</Text>
+                <Text style={styles.metaLabel}>Categoría</Text>
+                <Text style={styles.metaValue} numberOfLines={1}>{categoryLabel(recipe.category)}</Text>
               </View>
             </View>
 
@@ -77,11 +110,11 @@ export default function RecipeDetailScreen({ route, navigation }) {
 
             <View style={styles.metaItem}>
               <View style={[styles.metaIconBox, { backgroundColor: 'rgba(230, 57, 70, 0.1)' }]}>
-                <Ionicons name="flame" size={14} color={colors.danger} />
+                <Feather name="map-pin" size={14} color={colors.danger} />
               </View>
               <View>
-                <Text style={styles.metaLabel}>Calorías</Text>
-                <Text style={styles.metaValue}>{recipe.kcal} kcal</Text>
+                <Text style={styles.metaLabel}>Origen</Text>
+                <Text style={styles.metaValue} numberOfLines={1}>{isLoaded ? areaLabel(recipe.area) || '—' : '...'}</Text>
               </View>
             </View>
 
@@ -89,54 +122,83 @@ export default function RecipeDetailScreen({ route, navigation }) {
 
             <View style={styles.metaItem}>
               <View style={[styles.metaIconBox, { backgroundColor: colors.primarySoft }]}>
-                <Feather name="user" size={14} color={colors.primary} />
+                <Feather name="list" size={14} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.metaLabel}>Porciones</Text>
-                <Text style={styles.metaValue}>{recipe.servings} {recipe.servings === 1 ? 'pers.' : 'pers.'}</Text>
+                <Text style={styles.metaLabel}>Ingredientes</Text>
+                <Text style={styles.metaValue}>{isLoaded ? ingredients.length : '...'}</Text>
               </View>
             </View>
           </View>
 
-          {/* Sección: Ingredientes */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Ingredientes</Text>
-              <Text style={styles.sectionSubtitleBadge}>{ingredients.length} elementos</Text>
+          {/* Aviso de alérgenos (estimado a partir de los ingredientes) */}
+          {conflicts.length > 0 ? (
+            <View style={[styles.noticeBox, styles.noticeBoxDanger]}>
+              <Text style={[styles.noticeText, styles.noticeTextDanger]}>
+                Ojo: contiene {conflicts.join(', ')}, que marcaste en tus alergias.
+              </Text>
+              <Text style={styles.noticeText}>Es una estimación según los ingredientes. Verifícalo antes de cocinar.</Text>
             </View>
+          ) : isLoaded && recipe.allergens && recipe.allergens.length > 0 ? (
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeText}>Contiene (estimado): {recipe.allergens.join(', ')}</Text>
+            </View>
+          ) : null}
 
-            <View style={styles.ingredientsCard}>
-              {ingredients.map((item, index) => (
-                <View key={index} style={[styles.ingredientRow, index !== ingredients.length - 1 && styles.ingredientBorder]}>
-                  <View style={styles.checkIconBox}>
-                    <Feather name="check" size={11} color={colors.primary} />
-                  </View>
-                  <Text style={styles.ingredientText}>{item}</Text>
+          {/* Mientras llegan los datos completos, o si falló la carga */}
+          {!isLoaded ? (
+            status === 'error' ? (
+              <ErrorState title="No pudimos cargar los ingredientes" message={error} onRetry={reload} />
+            ) : (
+              <LoadingState message="Cargando ingredientes y pasos..." />
+            )
+          ) : (
+            <>
+              {/* Sección: Ingredientes */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>Ingredientes</Text>
+                  <Text style={styles.sectionSubtitleBadge}>{ingredients.length} elementos</Text>
                 </View>
-              ))}
-            </View>
-          </View>
 
-          {/* Sección: Paso a paso */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Paso a paso</Text>
-            <View style={styles.stepsContainer}>
-              {steps.map((stepText, index) => (
-                <View key={index} style={styles.stepCard}>
-                  <View style={styles.stepNumberBox}>
-                    <Text style={styles.stepNumberText}>{index + 1}</Text>
-                  </View>
-                  <Text style={styles.stepText}>{stepText}</Text>
+                <View style={styles.ingredientsCard}>
+                  {ingredients.map((item, index) => (
+                    <View key={index} style={[styles.ingredientRow, index !== ingredients.length - 1 && styles.ingredientBorder]}>
+                      <View style={styles.checkIconBox}>
+                        <Feather name="check" size={11} color={colors.primary} />
+                      </View>
+                      <Text style={styles.ingredientText}>{item}</Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
+              </View>
 
-            {/* Botón Ya lo cociné */}
-            <TouchableOpacity style={styles.cameraButton} onPress={handleCameraRecord}>
-              <Feather name="camera" size={18} color={colors.primary} />
-              <Text style={styles.cameraButtonText}>¡Ya lo cociné! Registrar foto</Text>
-            </TouchableOpacity>
-          </View>
+              {/* Sección: Paso a paso */}
+              <View style={styles.sectionContainer}>
+                <Text style={styles.sectionTitle}>Paso a paso</Text>
+                {steps.length === 0 ? (
+                  <Text style={styles.emptyStepsText}>Esta receta no trae instrucciones.</Text>
+                ) : (
+                  <View style={styles.stepsContainer}>
+                    {steps.map((stepText, index) => (
+                      <View key={index} style={styles.stepCard}>
+                        <View style={styles.stepNumberBox}>
+                          <Text style={styles.stepNumberText}>{index + 1}</Text>
+                        </View>
+                        <Text style={styles.stepText}>{stepText}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Botón Ya lo cociné */}
+                <TouchableOpacity style={styles.cameraButton} onPress={handleCameraRecord}>
+                  <Feather name="camera" size={18} color={colors.primary} />
+                  <Text style={styles.cameraButtonText}>¡Ya lo cociné! Registrar foto</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
         </View>
       </ScrollView>
@@ -153,6 +215,35 @@ export default function RecipeDetailScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  fallback: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  noticeBox: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+  },
+  noticeBoxDanger: {
+    backgroundColor: 'rgba(230, 57, 70, 0.1)',
+  },
+  noticeText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.text,
+  },
+  noticeTextDanger: {
+    color: colors.danger,
+    fontWeight: '700',
+  },
+  emptyStepsText: {
+    fontSize: 13,
+    color: colors.text60,
+    marginTop: 8,
+  },
   floatingHeader: {
     position: 'absolute',
     top: 40,

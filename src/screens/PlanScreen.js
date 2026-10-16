@@ -64,25 +64,22 @@ const DAILY_KCAL_GOAL = 1800;
 const formatNumber = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 export default function PlanScreen({ navigation }) {
-    const [days, setDays] = useState([]);
-    const [selectedDate, setSelectedDate] = useState(null);
-    const [dailyPlan, setDailyPlan] = useState({}); // Aquí guardaremos las comidas del día seleccionado
+    // Se calculan en el primer render (así no se ve un instante la pantalla vacía)
+    const [days] = useState(generateDates);
+    const [selectedDate, setSelectedDate] = useState(() => new Date().toDateString());
+    const [dailyPlan, setDailyPlan] = useState(() => getMealsFromAPI(new Date().toDateString())); // comidas del día seleccionado
     const scrollViewRef = useRef(null);
 
-    // Carga inicial del calendario
+    // Al abrir, el calendario se desplaza hasta el día de hoy
     useEffect(() => {
-        const generatedDays = generateDates();
-        setDays(generatedDays);
-        
-        const todayIndex = generatedDays.findIndex(d => d.isToday);
-        if (todayIndex !== -1) {
-            setSelectedDate(generatedDays[todayIndex].fullDate);
-            
-            setTimeout(() => {
-                scrollViewRef.current?.scrollTo({ x: todayIndex * 60 - 40, animated: true });
-            }, 100);
-        }
-    }, []);
+        const todayIndex = days.findIndex((d) => d.isToday);
+        if (todayIndex === -1) return undefined;
+
+        const timer = setTimeout(() => {
+            scrollViewRef.current?.scrollTo({ x: todayIndex * 60 - 40, animated: true });
+        }, 100);
+        return () => clearTimeout(timer);
+    }, [days]);
 
     // Cada vez que seleccionas un día diferente, "llamamos a la API"
     useEffect(() => {

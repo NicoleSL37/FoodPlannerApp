@@ -2,26 +2,29 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import RecipeImage from './RecipeImage';
 
 export default function RecipeCard({
     title,
-    time,
-    calories,
-    tag,
+    image,
     icon,
+    tag,
     category,
+    meta,
     isFavorite = false,
     onToggleFavorite,
     onViewRecipe,
 }) {
     return (
         <View style={styles.recipeCard}>
-            {/* Imagen / Ilustración Placeholder */}
+            {/* Foto de la receta (con ícono de respaldo si no carga) */}
             <View style={styles.cardImageContainer}>
-                <Feather name={icon || 'coffee'} size={34} color={colors.primary} />
-                <View style={styles.tagBadge}>
-                    <Text style={styles.tagBadgeText}>{tag}</Text>
-                </View>
+                <RecipeImage uri={image} icon={icon} />
+                {tag ? (
+                    <View style={styles.tagBadge}>
+                        <Text style={styles.tagBadgeText}>{tag}</Text>
+                    </View>
+                ) : null}
                 {/* Botón Favorito */}
                 <TouchableOpacity
                     style={styles.heartButton}
@@ -34,19 +37,16 @@ export default function RecipeCard({
 
             {/* Contenido de la Tarjeta */}
             <View style={styles.cardContent}>
-                <Text style={styles.recipeTitle}>{title}</Text>
-                
-                <View style={styles.recipeMeta}>
-                    <View style={styles.metaItem}>
-                        <Feather name="clock" size={12} color={colors.primary} style={{ marginRight: 4 }} />
-                        <Text style={styles.metaText}>{time}</Text>
+                <Text style={styles.recipeTitle} numberOfLines={2}>{title}</Text>
+
+                {meta ? (
+                    <View style={styles.recipeMeta}>
+                        <View style={styles.metaItem}>
+                            <Feather name="list" size={12} color={colors.primary} style={{ marginRight: 4 }} />
+                            <Text style={styles.metaText}>{meta}</Text>
+                        </View>
                     </View>
-                    <Text style={styles.metaDot}>•</Text>
-                    <View style={styles.metaItem}>
-                        <Ionicons name="flame" size={12} color={colors.accent} style={{ marginRight: 4 }} />
-                        <Text style={styles.metaText}>{calories}</Text>
-                    </View>
-                </View>
+                ) : null}
 
                 <View style={styles.cardFooter}>
                     <Text style={styles.categoryLabel}>{category}</Text>
@@ -136,10 +136,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: colors.text70,
         fontWeight: '500',
-    },
-    metaDot: {
-        fontSize: 12,
-        color: colors.text40,
     },
     cardFooter: {
         marginTop: 10,
