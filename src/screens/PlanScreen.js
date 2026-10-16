@@ -1,104 +1,97 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
     StyleSheet,
     Text,
     View,
+    Image,
     TouchableOpacity,
     ScrollView,
     Alert,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
-import { Screen } from '../components';
+import { Screen, PickRecipeModal } from '../components';
+import { categoryLabel } from '../data/categories';
+import { MEAL_SLOTS } from '../data/mealSlots';
+import { buildDays, countPlanned, dateKey } from '../utils/plan';
 
-// 1. GENERADOR DE FECHAS
-const generateDates = () => {
-    const dates = [];
-    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const today = new Date();
+export default function PlanScreen({ navigation, route }) {
+    // El plan vive en UserContext y se guarda en AsyncStorage (por usuario)
+    const { plan, setMeal, removeMeal, favorites, viewed, history } = useContext(UserContext);
 
-    for (let i = -3; i <= 15; i++) {
-        const currentDate = new Date(today);
-        currentDate.setDate(today.getDate() + i);
-        
-        dates.push({
-            day: dayNames[currentDate.getDay()],
-            date: currentDate.getDate().toString(),
-            fullDate: currentDate.toDateString(), // Usaremos esto como ID para buscar en la base de datos
-            isToday: i === 0
-        });
-    }
-    return dates;
-};
-
-// 2. SIMULADOR DE API / BASE DE DATOS
-// Más adelante, en lugar de leer esto, harás un "fetch" a tu API usando el 'fullDate'.
-const getMealsFromAPI = (fullDate) => {
-    const today = new Date().toDateString();
-    
-    const mockDatabase = {
-        [today]: { // El día de hoy tiene datos
-            desayuno: { name: 'Bowl de Avena con Frutas y Chía', kcal: 320, time: '15 min', icon: 'cafe-outline' },
-            almuerzo: { name: 'Tostadas de Aguacate y Huevo Poché', kcal: 450, time: '20 min', icon: 'restaurant-outline' },
-            cena: null,
-            snack: { name: 'Smoothie Verde Detox con Espinacas', kcal: 180, time: '5 min', icon: 'water-outline' }
-        }
-        // Los demás días devolverán 'undefined', por lo que saldrán vacíos listos para planear
-    };
-
-    return mockDatabase[fullDate] || { desayuno: null, almuerzo: null, cena: null, snack: null };
-};
-
-// 3. ESTRUCTURA DE TUS COMIDAS
-const MEAL_SLOTS = [
-    { id: 'desayuno', title: 'DESAYUNO', defaultTime: '08:30 AM', icon: 'cafe-outline' },
-    { id: 'almuerzo', title: 'ALMUERZO', defaultTime: '01:30 PM', icon: 'restaurant-outline' },
-    { id: 'cena', title: 'CENA', defaultTime: '08:00 PM', icon: 'moon-outline' },
-    { id: 'snack', title: 'SNACK', defaultTime: '05:00 PM', icon: 'water-outline' },
-];
-
-
-const DAILY_KCAL_GOAL = 1800;
-
-// 1480 -> "1,480"
-const formatNumber = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-export default function PlanScreen({ navigation }) {
-    // Se calculan en el primer render (así no se ve un instante la pantalla vacía)
-    const [days] = useState(generateDates);
-    const [selectedDate, setSelectedDate] = useState(() => new Date().toDateString());
-    const [dailyPlan, setDailyPlan] = useState(() => getMealsFromAPI(new Date().toDateString())); // comidas del día seleccionado
+    const days = useMemo(() => buildDays(3, 15), []);
+    const [selectedKey, setSelectedKey] = useState(() => dateKey());
+    const [pickerSlot, setPickerSlot] = useState(null); // comida para la que se está eligiendo receta
     const scrollViewRef = useRef(null);
 
-    // Al abrir, el calendario se desplaza hasta el día de hoy
-    useEffect(() => {
-        const todayIndex = days.findIndex((d) => d.isToday);
-        if (todayIndex === -1) return undefined;
-
+    const scrollToDay = (key) => {
+        const index = days.findIndex((d) => d.key === key);
+        if (index === -1) return undefined;
         const timer = setTimeout(() => {
-            scrollViewRef.current?.scrollTo({ x: todayIndex * 60 - 40, animated: true });
+            scrollViewRef.current?.scrollTo({ x: index * 60 - 40, animated: true });
         }, 100);
         return () => clearTimeout(timer);
-    }, [days]);
+    };
 
-    // Cada vez que seleccionas un día diferente, "llamamos a la API"
+    // Al abrir, el calendario se desplaza hasta el día de hoy
+    useEffect(() => scrollToDay(dateKey()), [days]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Si llegas desde "Ver plan" en el detalle de una receta, se abre el día al que la agregaste
+    const targetKey = route && route.params ? route.params.dateKey : undefined;
     useEffect(() => {
-        if (selectedDate) {
-            // AQUÍ CONECTARÁS TU API EN EL FUTURO:
-            // const data = await fetch(`tu-api.com/planes?fecha=${selectedDate}`);
-            // setDailyPlan(data);
-            
-            const data = getMealsFromAPI(selectedDate);
-            setDailyPlan(data);
-        }
-    }, [selectedDate]);
+        if (!targetKey) return undefined;
+        setSelectedKey(targetKey);
+        return scrollToDay(targetKey);
+    }, [targetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Calorías del día calculadas con lo que realmente está asignado
-    const totalKcal = Object.values(dailyPlan).reduce((sum, meal) => sum + (meal ? meal.kcal : 0), 0);
-    const kcalPercent = Math.min(100, Math.round((totalKcal / DAILY_KCAL_GOAL) * 100));
+    const dailyPlan = plan[selectedKey] || {};
+    const plannedCount = countPlanned(dailyPlan);
+    const plannedPercent = Math.round((plannedCount / MEAL_SLOTS.length) * 100);
 
-    const handleComplete = (mealName) => {
-        navigation.navigate('PreparationRecord', { recipeTitle: mealName });
+    // Recetas que se pueden elegir sin internet: favoritas primero y luego las vistas, sin repetir
+    const candidates = useMemo(() => {
+        const seen = new Set();
+        const list = [];
+        favorites.forEach((r) => {
+            if (!seen.has(r.id)) { seen.add(r.id); list.push({ ...r, source: 'Favorita' }); }
+        });
+        viewed.forEach((r) => {
+            if (!seen.has(r.id)) { seen.add(r.id); list.push({ ...r, source: 'Vista recientemente' }); }
+        });
+        return list;
+    }, [favorites, viewed]);
+
+    const pickerTitle = pickerSlot
+        ? `Elegir ${MEAL_SLOTS.find((s) => s.id === pickerSlot).title.toLowerCase()}`
+        : '';
+
+    const handlePick = (recipe) => {
+        setMeal(selectedKey, pickerSlot, recipe);
+        setPickerSlot(null);
+    };
+
+    const handleRemove = (slot, meal) => {
+        Alert.alert('Quitar del plan', `¿Quitar "${meal.title}" de ${slot.title.toLowerCase()}?`, [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Quitar', style: 'destructive', onPress: () => removeMeal(selectedKey, slot.id) },
+        ]);
+    };
+
+    // El plan guarda una receta compacta; en el detalle se muestra al instante y se piden ingredientes y pasos a la API
+    const handleOpenRecipe = (meal) => {
+        navigation.navigate('RecipeDetail', {
+            recipeId: meal.id,
+            recipe: { area: '', tag: '', ingredients: [], steps: [], diets: null, allergens: null, ...meal, isPartial: true },
+        });
+    };
+
+    // Una comida está completada si ya se registró en el historial desde este día y esta comida
+    const isCompleted = (slot, meal) =>
+        history.some((h) => h.source === 'plan' && h.planKey === selectedKey && h.slotId === slot.id && h.recipeId === meal.id);
+
+    const handleComplete = (slot, meal) => {
+        navigation.navigate('PreparationRecord', { recipe: meal, source: 'plan', planKey: selectedKey, slotId: slot.id });
     };
 
     return (
@@ -117,80 +110,96 @@ export default function PlanScreen({ navigation }) {
                     </View>
                 </View>
 
-                {/* Calendario Dinámico */}
+                {/* Calendario: un punto marca los días que ya tienen comidas planificadas */}
                 <View style={styles.calendarContainer}>
                     <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.calendarScroll}>
-                        {days.map((item, index) => {
-                            const isActive = selectedDate === item.fullDate;
+                        {days.map((item) => {
+                            const isActive = selectedKey === item.key;
+                            const hasMeals = Boolean(plan[item.key]);
                             return (
                                 <TouchableOpacity
-                                    key={index}
-                                    onPress={() => setSelectedDate(item.fullDate)}
+                                    key={item.key}
+                                    onPress={() => setSelectedKey(item.key)}
                                     style={[styles.dayCard, isActive ? styles.dayCardActive : styles.dayCardInactive]}
                                 >
                                     <Text style={[styles.dayName, isActive ? styles.dayNameActive : styles.dayNameInactive]}>{item.day}</Text>
                                     <Text style={[styles.dayDate, isActive ? styles.dayDateActive : styles.dayDateInactive]}>{item.date}</Text>
                                     {isActive && <View style={styles.activeDot} />}
+                                    {!isActive && hasMeals && <View style={styles.planDot} />}
                                 </TouchableOpacity>
                             );
                         })}
                     </ScrollView>
                 </View>
 
-                {/* Resumen Nutricional */}
+                {/* Resumen del día (la API no entrega calorías, así que se cuentan las comidas planificadas) */}
                 <View style={styles.nutritionSummary}>
                     <View style={styles.nutritionLeft}>
                         <View style={styles.nutritionIconBox}>
-                            <Ionicons name="flame" size={16} color={colors.primary} />
+                            <Ionicons name="restaurant" size={16} color={colors.primary} />
                         </View>
                         <View>
-                            <Text style={styles.nutritionLabel}>Meta Calórica Diaria</Text>
-                            <Text style={styles.nutritionValue}>{formatNumber(totalKcal)} / {formatNumber(DAILY_KCAL_GOAL)} kcal</Text>
+                            <Text style={styles.nutritionLabel}>Comidas planificadas</Text>
+                            <Text style={styles.nutritionValue}>{plannedCount} de {MEAL_SLOTS.length}</Text>
                         </View>
                     </View>
                     <View style={styles.nutritionPercentageBox}>
-                        <Text style={styles.nutritionPercentageText}>{kcalPercent}%</Text>
+                        <Text style={styles.nutritionPercentageText}>{plannedPercent}%</Text>
                     </View>
                 </View>
 
-                {/* Lista de Comidas Renderizada Dinámicamente */}
+                {/* Lista de comidas del día seleccionado */}
                 <View style={styles.mealsContainer}>
                     {MEAL_SLOTS.map((slot) => {
-                        const mealData = dailyPlan[slot.id]; // Buscamos si hay comida asignada a este slot
+                        const meal = dailyPlan[slot.id];
 
                         return (
                             <View key={slot.id} style={styles.mealSection}>
                                 <View style={styles.mealHeader}>
                                     <Text style={styles.mealTitle}>{slot.title}</Text>
-                                    <Text style={mealData ? styles.mealTime : styles.mealTimeEmpty}>
-                                        {mealData ? slot.defaultTime : 'Sin asignar'}
+                                    <Text style={meal ? styles.mealTime : styles.mealTimeEmpty}>
+                                        {meal ? slot.defaultTime : 'Sin asignar'}
                                     </Text>
                                 </View>
 
-                                {mealData ? (
-                                    /* TARJETA LLENA */
-                                    <View style={styles.mealCard}>
+                                {meal ? (
+                                    <TouchableOpacity style={styles.mealCard} activeOpacity={0.85} onPress={() => handleOpenRecipe(meal)}>
                                         <View style={styles.mealCardLeft}>
-                                            <View style={styles.mealIconBox}>
-                                                <Ionicons name={mealData.icon || slot.icon} size={20} color={colors.primary} />
+                                            <View style={[styles.mealIconBox, styles.mealThumb]}>
+                                                {meal.image ? (
+                                                    <Image source={{ uri: meal.image }} style={styles.mealThumbImage} resizeMode="cover" />
+                                                ) : (
+                                                    <Ionicons name={slot.icon} size={20} color={colors.primary} />
+                                                )}
                                             </View>
                                             <View style={styles.mealInfo}>
-                                                <Text style={styles.mealName} numberOfLines={1}>{mealData.name}</Text>
-                                                <View style={styles.mealMeta}>
-                                                    <Text style={styles.mealMetaText}>🔥 {mealData.kcal} kcal</Text>
-                                                    <Text style={styles.mealMetaDot}>•</Text>
-                                                    <Text style={styles.mealMetaTime}>{mealData.time}</Text>
-                                                </View>
+                                                <Text style={styles.mealName} numberOfLines={1}>{meal.title}</Text>
+                                                <Text style={styles.mealMetaTime} numberOfLines={1}>{categoryLabel(meal.category) || 'Receta'}</Text>
                                             </View>
                                         </View>
-                                        <TouchableOpacity style={styles.completeBtn} onPress={() => handleComplete(mealData.name)}>
-                                            <Feather name="check-circle" size={14} color={colors.primary} />
-                                            <Text style={styles.completeBtnText}>Completar</Text>
-                                        </TouchableOpacity>
-                                    </View>
+                                        <View style={styles.mealActions}>
+                                            {isCompleted(slot, meal) ? (
+                                                <View style={[styles.completeBtn, styles.completeBtnDone]}>
+                                                    <Feather name="check-circle" size={14} color={colors.white} />
+                                                    <Text style={[styles.completeBtnText, styles.completeBtnTextDone]}>Hecho</Text>
+                                                </View>
+                                            ) : (
+                                                <TouchableOpacity style={styles.completeBtn} onPress={() => handleComplete(slot, meal)}>
+                                                    <Feather name="check-circle" size={14} color={colors.primary} />
+                                                    <Text style={styles.completeBtnText}>Completar</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                            <TouchableOpacity
+                                                style={styles.removeBtn}
+                                                onPress={() => handleRemove(slot, meal)}
+                                                accessibilityLabel={`Quitar ${meal.title} del plan`}
+                                            >
+                                                <Feather name="trash-2" size={16} color={colors.text50} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </TouchableOpacity>
                                 ) : (
-                                    /* TARJETA VACÍA */
-                                    <TouchableOpacity style={styles.emptyMealCard} onPress={() => Alert.alert('Próximamente', `Pronto podrás elegir una receta para ${slot.title.toLowerCase()}.`)}>
+                                    <TouchableOpacity style={styles.emptyMealCard} onPress={() => setPickerSlot(slot.id)}>
                                         <View style={styles.emptyIconBox}>
                                             <Feather name="plus" size={16} color={colors.primary} />
                                         </View>
@@ -202,11 +211,48 @@ export default function PlanScreen({ navigation }) {
                     })}
                 </View>
             </ScrollView>
+
+            <PickRecipeModal
+                visible={pickerSlot !== null}
+                title={pickerTitle}
+                recipes={candidates}
+                onClose={() => setPickerSlot(null)}
+                onSelect={handlePick}
+            />
         </Screen>
     );
 }
 
 const styles = StyleSheet.create({
+    mealThumb: {
+        overflow: 'hidden',
+    },
+    mealThumbImage: {
+        width: '100%',
+        height: '100%',
+    },
+    mealActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    completeBtnDone: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    completeBtnTextDone: {
+        color: colors.white,
+    },
+    removeBtn: {
+        padding: 8,
+    },
+    planDot: {
+        width: 5,
+        height: 5,
+        borderRadius: 3,
+        backgroundColor: colors.primary,
+        marginTop: 4,
+    },
     scrollContent: {
         paddingBottom: 120, 
     },

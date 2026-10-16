@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,18 +6,23 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
-import { Screen, RecipeImage, LoadingState, ErrorState } from '../components';
+import { Screen, RecipeImage, LoadingState, ErrorState, AddToPlanModal } from '../components';
+import { MEAL_SLOTS } from '../data/mealSlots';
+import { formatDayLabel, toPlanMeal } from '../utils/plan';
 import { categoryLabel } from '../data/categories';
 import { areaLabel } from '../data/areas';
 import { getAllergyConflicts } from '../utils/recipeFilters';
 import { useRecipe } from '../hooks/useRecipes';
+import { useRecipeTranslation } from '../hooks/useRecipeTranslation';
 
 export default function RecipeDetailScreen({ route, navigation }) {
-  const { toggleFavorite, isFavorite, allergies, addViewed } = useContext(UserContext);
+  const { toggleFavorite, isFavorite, allergies, addViewed, plan, setMeal } = useContext(UserContext);
+  const [planModalVisible, setPlanModalVisible] = useState(false);
 
   // Desde la lista llega la receta parcial (nombre y foto); los ingredientes y pasos se piden a la API
   const { recipeId, recipe: initialRecipe } = route.params || {};
@@ -27,6 +32,9 @@ export default function RecipeDetailScreen({ route, navigation }) {
   useEffect(() => {
     if (recipe) addViewed(recipe);
   }, [recipe, addViewed]);
+
+  // Traducción al español bajo demanda (con caché en el celular)
+  const translation = useRecipeTranslation(recipe);
 
   const handleBack = () => {
     navigation.goBack();
@@ -56,15 +64,32 @@ export default function RecipeDetailScreen({ route, navigation }) {
 
   const favorite = isFavorite(recipe.id);
   const isLoaded = !recipe.isPartial;
-  const { ingredients, steps } = recipe;
+  // Si el usuario eligió ver la traducción, se muestran los textos en español (mismas cantidades que el original)
+  const spanish = translation.showSpanish ? translation.data : null;
+  const titleText = spanish ? spanish.title : recipe.title;
+  const ingredients = spanish ? spanish.ingredients : recipe.ingredients;
+  const steps = spanish ? spanish.steps : recipe.steps;
   const conflicts = isLoaded ? getAllergyConflicts(recipe.allergens, allergies) : [];
 
   const handleCameraRecord = () => {
-    navigation.navigate('PreparationRecord', { recipeTitle: recipe.title });
+    navigation.navigate('PreparationRecord', { recipe: toPlanMeal(recipe), source: 'free' });
   };
 
-  const handleAddToPlan = () => {
-    Alert.alert('Plan semanal', 'Pronto podrás añadir recetas a tu plan semanal.');
+  const handleAddToPlan = () => setPlanModalVisible(true);
+
+  // Guarda la receta en el plan (AsyncStorage) y ofrece ir directo a ese día
+  const handleConfirmPlan = (key, slotId) => {
+    setMeal(key, slotId, recipe);
+    setPlanModalVisible(false);
+    const slot = MEAL_SLOTS.find((s) => s.id === slotId);
+    Alert.alert(
+      'Plan semanal',
+      `Añadiste "${recipe.title}" a ${slot.title.toLowerCase()} (${formatDayLabel(key).toLowerCase()}).`,
+      [
+        { text: 'Seguir aquí', style: 'cancel' },
+        { text: 'Ver plan', onPress: () => navigation.navigate('MainTabs', { screen: 'PlanTab', params: { dateKey: key } }) },
+      ]
+    );
   };
 
   return (
@@ -97,7 +122,7 @@ export default function RecipeDetailScreen({ route, navigation }) {
 
         {/* Tarjeta Principal de Información */}
         <View style={styles.mainInfoCard}>
-          <Text style={styles.recipeTitle}>{recipe.title}</Text>
+          <Text style={styles.recipeTitle}>{titleText}</Text>
 
           {/* Fila de Metadatos */}
           <View style={styles.metaRow}>
@@ -159,6 +184,37 @@ export default function RecipeDetailScreen({ route, navigation }) {
             )
           ) : (
             <>
+              {/* Traducción al español: la API de recetas solo entrega inglés */}
+              <View style={styles.translateRow}>
+                {translation.status === 'loading' ? (
+                  <View style={styles.translateBtn}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.translateBtnText}>Traduciendo...</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.translateBtn}
+                    onPress={translation.showSpanish ? translation.showOriginal : translation.translate}
+                    accessibilityRole="button"
+                  >
+                    <Feather name="globe" size={14} color={colors.primary} />
+                    <Text style={styles.translateBtnText}>
+                      {translation.showSpanish
+                        ? 'Ver original (inglés)'
+                        : translation.status === 'error'
+                          ? 'Reintentar traducción'
+                          : translation.data
+                            ? 'Ver en español'
+                            : 'Traducir al español'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {translation.status === 'error' ? <Text style={styles.translateError}>{translation.error}</Text> : null}
+                {translation.showSpanish ? (
+                  <Text style={styles.translateNote}>Traducción automática: puede tener errores.</Text>
+                ) : null}
+              </View>
+
               {/* Sección: Ingredientes */}
               <View style={styles.sectionContainer}>
                 <View style={styles.sectionHeaderRow}>
@@ -215,11 +271,47 @@ export default function RecipeDetailScreen({ route, navigation }) {
           <Text style={styles.addToPlanText}>Añadir al Plan Semanal</Text>
         </TouchableOpacity>
       </View>
+      <AddToPlanModal
+        visible={planModalVisible}
+        recipeTitle={recipe.title}
+        plan={plan}
+        onClose={() => setPlanModalVisible(false)}
+        onConfirm={handleConfirmPlan}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  translateRow: {
+    marginTop: 16,
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  translateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primaryMid,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  translateBtnText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  translateError: {
+    fontSize: 12,
+    color: colors.danger,
+  },
+  translateNote: {
+    fontSize: 11,
+    color: colors.text50,
+  },
   fallback: {
     flex: 1,
     justifyContent: 'center',

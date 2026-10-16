@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,12 +8,17 @@ import {
   Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
 import { Screen, ScreenHeader } from '../components';
 
 export default function PreparationRecordScreen({ route, navigation }) {
-  const recipeTitle = route.params?.recipeTitle || 'Tu platillo';
+  const { addHistory } = useContext(UserContext);
+  // Llega desde el Plan (source 'plan', con día y comida) o desde el detalle de una receta (source 'free')
+  const { recipe, source = 'free', planKey = null, slotId = null } = route.params || {};
+  const recipeTitle = recipe?.title || route.params?.recipeTitle || 'Tu platillo';
   const [photoCaptured, setPhotoCaptured] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const handleBack = () => {
     navigation.goBack();
@@ -24,9 +29,24 @@ export default function PreparationRecordScreen({ route, navigation }) {
     Alert.alert('Foto', '¡Foto de preparación capturada con éxito!');
   };
 
+  // Guarda la preparación en el historial (AsyncStorage). La foto es simulada hasta el APF3, por eso solo se guarda si hubo captura.
   const handleSaveToHistory = () => {
-    Alert.alert('Historial', '¡Registrado en tu historial!');
-    // navigation.navigate('History');
+    if (saved) return;
+    addHistory({
+      recipeId: recipe?.id || '',
+      title: recipeTitle,
+      category: recipe?.category || '',
+      image: recipe?.image || null,
+      source,
+      planKey,
+      slotId,
+      hasPhoto: photoCaptured,
+    });
+    setSaved(true);
+    Alert.alert('Historial', '¡Registrado en tu historial!', [
+      { text: 'Seguir aquí', style: 'cancel' },
+      { text: 'Ver historial', onPress: () => navigation.replace('History') },
+    ]);
   };
 
   return (
@@ -105,9 +125,9 @@ export default function PreparationRecordScreen({ route, navigation }) {
 
       {/* Botón Guardar Anclado Abajo */}
       <View style={styles.floatingFooter}>
-        <TouchableOpacity style={styles.saveHistoryButton} onPress={handleSaveToHistory}>
+        <TouchableOpacity style={[styles.saveHistoryButton, saved && { opacity: 0.5 }]} onPress={handleSaveToHistory} disabled={saved}>
           <Feather name="save" size={18} color={colors.text} style={{ marginRight: 8 }} />
-          <Text style={styles.saveHistoryText}>Guardar en mi Historial</Text>
+          <Text style={styles.saveHistoryText}>{saved ? 'Guardado en tu Historial' : 'Guardar en mi Historial'}</Text>
         </TouchableOpacity>
       </View>
     </Screen>

@@ -12,3 +12,5 @@ export { default as RecipeImage } from './RecipeImage';
 export { default as LoadingState } from './LoadingState';
 export { default as ErrorState } from './ErrorState';
 export { default as RecentRecipes } from './RecentRecipes';
+export { default as AddToPlanModal } from './AddToPlanModal';
+export { default as PickRecipeModal } from './PickRecipeModal';
