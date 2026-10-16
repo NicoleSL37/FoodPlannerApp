@@ -10,7 +10,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
-import { Screen, Chip, EmptyState, ErrorState, LoadingState, RecipeCard } from '../components';
+import { Screen, Chip, EmptyState, ErrorState, LoadingState, RecipeCard, RecentRecipes } from '../components';
 import { CATEGORIES, DEFAULT_CATEGORY, categoryLabel } from '../data/categories';
 import { areaLabel } from '../data/areas';
 import { filterRecipes, describePreferences } from '../utils/recipeFilters';
@@ -18,7 +18,7 @@ import { useRecipes } from '../hooks/useRecipes';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 
 export default function HomeScreen({ navigation }) {
-    const { userName, dietaryPreference, allergies, toggleFavorite, isFavorite } = useContext(UserContext);
+    const { userName, dietaryPreference, allergies, toggleFavorite, isFavorite, viewed, clearViewed } = useContext(UserContext);
     const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORY);
     const [query, setQuery] = useState('');
 
@@ -144,6 +144,15 @@ export default function HomeScreen({ navigation }) {
                 {hasAllergies && !isSearching ? (
                     <Text style={styles.noteText}>Las alergias se revisan en el detalle de cada receta.</Text>
                 ) : null}
+
+                {/* Vistas recientemente (guardadas en el celular) */}
+                {!isSearching && (
+                    <RecentRecipes
+                        recipes={viewed}
+                        onClear={clearViewed}
+                        onSelect={(recipe) => navigation.navigate('RecipeDetail', { recipeId: recipe.id, recipe })}
+                    />
+                )}
 
                 {/* Recetas */}
                 <View style={styles.sectionContainer}>

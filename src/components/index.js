@@ -11,3 +11,4 @@ export { default as OnboardingStep } from './OnboardingStep';
 export { default as RecipeImage } from './RecipeImage';
 export { default as LoadingState } from './LoadingState';
 export { default as ErrorState } from './ErrorState';
+export { default as RecentRecipes } from './RecentRecipes';

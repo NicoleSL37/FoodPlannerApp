@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,11 +17,16 @@ import { getAllergyConflicts } from '../utils/recipeFilters';
 import { useRecipe } from '../hooks/useRecipes';
 
 export default function RecipeDetailScreen({ route, navigation }) {
-  const { toggleFavorite, isFavorite, allergies } = useContext(UserContext);
+  const { toggleFavorite, isFavorite, allergies, addViewed } = useContext(UserContext);
 
   // Desde la lista llega la receta parcial (nombre y foto); los ingredientes y pasos se piden a la API
   const { recipeId, recipe: initialRecipe } = route.params || {};
   const { recipe, status, error, reload } = useRecipe(recipeId, initialRecipe);
+
+  // Cada receta que se abre queda en "Vistas recientemente" (se actualiza cuando llegan los datos completos)
+  useEffect(() => {
+    if (recipe) addViewed(recipe);
+  }, [recipe, addViewed]);
 
   const handleBack = () => {
     navigation.goBack();
