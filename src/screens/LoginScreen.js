@@ -6,12 +6,13 @@ import { colors } from '../theme/colors';
 import { Screen, BrandLogo, FormInput, PrimaryButton } from '../components';
 
 export default function LoginScreen({ navigation }) {
-    const { setUserName, setUserEmail } = useContext(UserContext);
+    const { signIn } = useContext(UserContext);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState({ email: '', password: '' });
+    const [submitting, setSubmitting] = useState(false);
 
-    const handleLogin = () => {
+    const handleLogin = async () => {
         const currentErrors = {
             email: validateEmail(email),
             password: password.trim() ? '' : 'La contraseña es obligatoria',
@@ -20,9 +21,9 @@ export default function LoginScreen({ navigation }) {
 
         if (currentErrors.email || currentErrors.password) return;
 
-        // Guardamos el usuario en el Context para que Inicio y Perfil lo muestren.
-        setUserName(nameFromEmail(email));
-        setUserEmail(email.trim());
+        setSubmitting(true);
+        // Guarda la sesión y recupera los favoritos y preferencias de este correo (si ya usó la app)
+        await signIn({ name: nameFromEmail(email), email });
 
         // replace: el usuario no puede volver al login con el botón "atrás".
         navigation.replace('MainTabs');
@@ -66,7 +67,7 @@ export default function LoginScreen({ navigation }) {
                             error={errors.password}
                         />
 
-                        <PrimaryButton title="Iniciar Sesión" onPress={handleLogin} style={styles.submit} />
+                        <PrimaryButton title="Iniciar Sesión" onPress={handleLogin} disabled={submitting} style={styles.submit} />
 
                         <TouchableOpacity style={styles.registerButton} onPress={() => navigation.navigate('Register')}>
                             <Text style={styles.registerText}>

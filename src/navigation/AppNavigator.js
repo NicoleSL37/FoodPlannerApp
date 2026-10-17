@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
 
 import { colors } from '../theme/colors';
+import { UserContext } from '../context/UserContext';
+import { Screen, LoadingState } from '../components';
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -62,9 +64,21 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
+    const { isHydrated, userEmail } = useContext(UserContext);
+
+    // Mientras se lee la sesión guardada en el celular, mostramos una pantalla de carga
+    if (!isHydrated) {
+        return (
+            <Screen style={{ justifyContent: 'center' }}>
+                <LoadingState message="Cargando tu cuenta..." />
+            </Screen>
+        );
+    }
+
+    // Con sesión guardada se entra directo a la app; sin sesión, al Login
     return (
         <NavigationContainer>
-            <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+            <Stack.Navigator initialRouteName={userEmail ? 'MainTabs' : 'Login'} screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="Login" component={LoginScreen} />
                 <Stack.Screen name="Register" component={RegisterScreen} />
                 <Stack.Screen name="DietaryPreferences" component={DietaryPreferencesScreen} />

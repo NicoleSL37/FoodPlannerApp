@@ -1,8 +1,8 @@
 import React, { useState, useContext } from 'react';
 import { UserContext } from '../context/UserContext';
 import { Chip, OnboardingStep } from '../components';
+import { ALLERGY_OPTIONS } from '../data/preferences';
 
-const ALLERGIES_OPTIONS = ['Sin Lactosa', 'Sin Gluten', 'Nueces', 'Mariscos', 'Huevos', 'Ninguna'];
 
 export default function AllergiesScreen({ route, navigation }) {
   // mode: 'onboarding' (viene del registro) | 'edit' (viene del Perfil)
@@ -44,7 +44,7 @@ export default function AllergiesScreen({ route, navigation }) {
       onNext={handleFinish}
       feedback={selected.join(', ')}
     >
-      {ALLERGIES_OPTIONS.map((option) => (
+      {ALLERGY_OPTIONS.map((option) => (
         <Chip
           key={option}
           label={option}

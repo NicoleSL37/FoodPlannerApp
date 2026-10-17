@@ -12,8 +12,9 @@ import { colors } from '../theme/colors';
 import { Screen } from '../components';
 
 export default function ProfileScreen({ navigation }) {
-    const { userName, userEmail, dietaryPreference, allergies, resetUser } = useContext(UserContext);
+    const { userName, userEmail, dietaryPreference, allergies, favorites, viewed, signOut } = useContext(UserContext);
 
+    const allergyCount = allergies.filter((a) => a !== 'Ninguna').length;
     const displayName = userName || 'Usuario';
     const displayEmail = userEmail || 'Sin correo registrado';
 
@@ -25,7 +26,7 @@ export default function ProfileScreen({ navigation }) {
         .substring(0, 2);
 
     const handleLogout = () => {
-        resetUser();
+        signOut();
         // El Perfil vive dentro de las pestañas: reiniciamos el stack padre para volver al Login.
         const root = navigation.getParent() || navigation;
         root.reset({ index: 0, routes: [{ name: 'Login' }] });
@@ -73,21 +74,21 @@ export default function ProfileScreen({ navigation }) {
                     <Text style={styles.userName}>{displayName}</Text>
                     <Text style={styles.userEmail}>{displayEmail}</Text>
 
-                    {/* Estadísticas rápidas */}
+                    {/* Estadísticas rápidas (datos reales del usuario) */}
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
-                            <Text style={styles.statNumber}>14</Text>
-                            <Text style={styles.statLabel}>Días activo</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statNumber}>8</Text>
-                            <Text style={styles.statLabel}>Planes hechos</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statNumber}>2</Text>
+                            <Text style={styles.statNumber}>{favorites.length}</Text>
                             <Text style={styles.statLabel}>Favoritos</Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
+                            <Text style={styles.statNumber}>{viewed.length}</Text>
+                            <Text style={styles.statLabel}>Vistas</Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
+                            <Text style={styles.statNumber}>{allergyCount}</Text>
+                            <Text style={styles.statLabel}>{allergyCount === 1 ? 'Alergia' : 'Alergias'}</Text>
                         </View>
                     </View>
                 </View>

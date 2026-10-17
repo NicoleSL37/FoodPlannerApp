@@ -11,7 +11,7 @@ import { colors } from '../theme/colors';
 import { Screen, BrandLogo, FormInput, PrimaryButton } from '../components';
 
 export default function RegisterScreen({ navigation }) {
-  const { setUserName, setUserEmail } = useContext(UserContext);
+  const { signIn } = useContext(UserContext);
 
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({ name: '', email: '', password: '', confirmPassword: '' });
@@ -22,7 +22,7 @@ export default function RegisterScreen({ navigation }) {
     setErrors((prev) => ({ ...prev, [field]: '' }));
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     const currentErrors = {
       name: validateName(form.name),
       email: validateEmail(form.email),
@@ -33,8 +33,8 @@ export default function RegisterScreen({ navigation }) {
 
     if (Object.values(currentErrors).some(Boolean)) return;
 
-    setUserName(form.name.trim());
-    setUserEmail(form.email.trim());
+    // Cuenta nueva: guarda la sesión y empieza con preferencias en blanco
+    await signIn({ name: form.name.trim(), email: form.email, isNewAccount: true });
     // Pasa al cuestionario de onboarding (dieta -> alergias)
     navigation.navigate('DietaryPreferences', { mode: 'onboarding' });
   };
