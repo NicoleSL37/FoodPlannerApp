@@ -7,26 +7,26 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserContext } from '../context/UserContext';
-import { RECIPES } from '../data/recipes';
-import { Screen, Chip, EmptyState, RecipeCard } from '../components';
 import { colors } from '../theme/colors';
+import { Screen, Chip, EmptyState, RecipeCard } from '../components';
+import { categoryLabel } from '../data/categories';
+import { areaLabel } from '../data/areas';
 
 export default function FavoritesScreen({ navigation }) {
     const { favorites, toggleFavorite } = useContext(UserContext);
     const [activeFilter, setActiveFilter] = useState('Todas');
 
-    const filters = ['Todas', 'Desayuno', 'Almuerzo', 'Cena', 'Postre'];
+    // Solo mostramos los filtros de las categorías que realmente tienen favoritos
+    const filters = useMemo(
+        () => ['Todas', ...Array.from(new Set(favorites.map((r) => r.category).filter(Boolean)))],
+        [favorites]
+    );
+    // Si ya no quedan favoritos de la categoría elegida, volvemos a "Todas"
+    const currentFilter = filters.includes(activeFilter) ? activeFilter : 'Todas';
 
-    // Solo las recetas que el usuario marcó con el corazón
-    const favoritesList = useMemo(() => RECIPES.filter((r) => favorites.includes(r.id)), [favorites]);
-
-    const filteredRecipes = activeFilter === 'Todas'
-        ? favoritesList
-        : favoritesList.filter((item) => item.category === activeFilter);
-
-    const handleRecipePress = (recipe) => {
-        navigation.navigate('RecipeDetail', { recipeId: recipe.id });
-    };
+    const filteredRecipes = currentFilter === 'Todas'
+        ? favorites
+        : favorites.filter((item) => item.category === currentFilter);
 
     return (
         <Screen>
@@ -41,24 +41,26 @@ export default function FavoritesScreen({ navigation }) {
                     {/* Contador Badge */}
                     <View style={styles.counterBadge}>
                         <Ionicons name="heart" size={11} color={colors.danger} />
-                        <Text style={styles.counterText}>{favoritesList.length}</Text>
+                        <Text style={styles.counterText}>{favorites.length}</Text>
                     </View>
                 </View>
 
                 {/* Filtros Rápidos (Horizontal) */}
-                <View style={styles.filterContainer}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-                        {filters.map((filter) => (
-                            <Chip
-                                key={filter}
-                                label={filter}
-                                size="md"
-                                selected={activeFilter === filter}
-                                onPress={() => setActiveFilter(filter)}
-                            />
-                        ))}
-                    </ScrollView>
-                </View>
+                {favorites.length > 0 && (
+                    <View style={styles.filterContainer}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+                            {filters.map((filter) => (
+                                <Chip
+                                    key={filter}
+                                    label={filter === 'Todas' ? 'Todas' : categoryLabel(filter)}
+                                    size="md"
+                                    selected={currentFilter === filter}
+                                    onPress={() => setActiveFilter(filter)}
+                                />
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
 
                 {/* Lista de Recetas Favoritas */}
                 <View style={styles.recipesList}>
@@ -67,25 +69,21 @@ export default function FavoritesScreen({ navigation }) {
                             <RecipeCard
                                 key={recipe.id}
                                 title={recipe.title}
-                                time={recipe.time}
-                                calories={`${recipe.kcal} kcal`}
-                                tag={recipe.tag}
+                                image={recipe.image}
                                 icon={recipe.icon}
-                                category={recipe.category}
+                                tag={areaLabel(recipe.area)}
+                                category={categoryLabel(recipe.category)}
+                                meta={recipe.ingredients.length > 0 ? `${recipe.ingredients.length} ingredientes` : null}
                                 isFavorite
-                                onToggleFavorite={() => toggleFavorite(recipe.id)}
-                                onViewRecipe={() => handleRecipePress(recipe)}
+                                onToggleFavorite={() => toggleFavorite(recipe)}
+                                onViewRecipe={() => navigation.navigate('RecipeDetail', { recipeId: recipe.id, recipe })}
                             />
                         ))
                     ) : (
                         <EmptyState
                             icon="heart"
-                            title={favoritesList.length === 0 ? 'Aún no tienes favoritos' : 'Sin recetas en esta categoría'}
-                            message={
-                                favoritesList.length === 0
-                                    ? 'Toca el corazón en una receta para guardarla aquí.'
-                                    : 'Prueba con otra categoría.'
-                            }
+                            title="Aún no tienes favoritos"
+                            message="Toca el corazón en una receta para guardarla aquí."
                         />
                     )}
                 </View>

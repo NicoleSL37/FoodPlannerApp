@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext } from 'react';
 import {
     StyleSheet,
     Text,
@@ -7,12 +7,14 @@ import {
     Switch,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
 import { Screen, ScreenHeader } from '../components';
 
 export default function SettingsScreen({ navigation }) {
-    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-    const [mealReminders, setMealReminders] = useState(true);
+    // Los ajustes viven en UserContext y se guardan en AsyncStorage (por usuario)
+    const { settings, updateSetting } = useContext(UserContext);
+    const { notifications, mealReminders } = settings;
 
     return (
         <Screen>
@@ -37,8 +39,8 @@ export default function SettingsScreen({ navigation }) {
                                 <Text style={styles.menuSubtitle}>Recibe avisos de nuevas recetas</Text>
                             </View>
                             <Switch
-                                value={notificationsEnabled}
-                                onValueChange={setNotificationsEnabled}
+                                value={notifications}
+                                onValueChange={(value) => updateSetting('notifications', value)}
                                 trackColor={{ false: colors.border, true: colors.primary }}
                                 thumbColor={colors.white}
                             />
@@ -53,13 +55,17 @@ export default function SettingsScreen({ navigation }) {
                                 <Text style={styles.menuSubtitle}>Avisos para tu plan semanal</Text>
                             </View>
                             <Switch
-                                value={mealReminders}
-                                onValueChange={setMealReminders}
+                                value={mealReminders && notifications}
+                                onValueChange={(value) => updateSetting('mealReminders', value)}
+                                disabled={!notifications}
                                 trackColor={{ false: colors.border, true: colors.primary }}
                                 thumbColor={colors.white}
                             />
                         </View>
                     </View>
+                    <Text style={styles.hint}>
+                        Tus preferencias se guardan en este celular. Los avisos se activarán en una próxima versión.
+                    </Text>
                 </View>
 
             </ScrollView>
@@ -113,6 +119,12 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: 'bold',
         color: colors.text,
+    },
+    hint: {
+        fontSize: 11,
+        color: colors.text50,
+        marginTop: 10,
+        marginLeft: 4,
     },
     menuSubtitle: {
         fontSize: 11,

@@ -1,38 +1,42 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
+import { categoryLabel } from '../data/categories';
+import { MEAL_SLOTS } from '../data/mealSlots';
+import { formatTimestamp } from '../utils/plan';
 import { Screen, ScreenHeader } from '../components';
 
 export default function HistoryScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Plan Semanal');
 
-  const historyData = [
-    {
-      id: '1',
-      title: 'Tostadas de Aguacate',
-      category: 'Desayuno',
-      time: 'Ayer, 08:30 AM',
-      type: 'Plan Semanal',
-      tag: 'Completado',
-    },
-    {
-      id: '2',
-      title: 'Smoothie Detox',
-      category: 'Snack',
-      time: 'Hoy, 10:15 AM',
-      type: 'Cocina Libre',
-      tag: 'Completado',
-    },
-  ];
+  // El historial vive en UserContext y se guarda en AsyncStorage (por usuario)
+  const { history, removeHistory } = useContext(UserContext);
 
-  const filteredHistory = historyData.filter(item => item.type === activeTab);
+  const TAB_SOURCE = { 'Plan Semanal': 'plan', 'Cocina Libre': 'free' };
+  const filteredHistory = history.filter((item) => item.source === TAB_SOURCE[activeTab]);
+
+  const handleRemove = (item) => {
+    Alert.alert('Borrar registro', `¿Borrar "${item.title}" de tu historial?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Borrar', style: 'destructive', onPress: () => removeHistory(item.id) },
+    ]);
+  };
+
+  // Etiqueta de la tarjeta: la comida del plan (Desayuno…) o la categoría de la receta
+  const badgeFor = (item) => {
+    const slot = MEAL_SLOTS.find((x) => x.id === item.slotId);
+    if (slot) return slot.title.charAt(0) + slot.title.slice(1).toLowerCase();
+    return categoryLabel(item.category) || 'Receta';
+  };
 
   const handleBack = () => {
     navigation.goBack();
@@ -86,27 +90,32 @@ export default function HistoryScreen({ navigation }) {
                 <View style={styles.cameraIconBox}>
                   <Feather name="camera" size={24} color="rgba(255,255,255,0.4)" />
                 </View>
-                <Text style={styles.photoText}>Foto capturada en vivo</Text>
+                <Text style={styles.photoText}>{item.hasPhoto ? 'Foto registrada' : 'Sin foto'}</Text>
                 
                 <View style={styles.completedTag}>
                   <View style={styles.greenDot} />
-                  <Text style={styles.completedTagText}>{item.tag}</Text>
+                  <Text style={styles.completedTagText}>Completado</Text>
                 </View>
               </View>
 
               {/* Bloque inferior de información */}
               <View style={styles.cardFooter}>
                 <View style={styles.cardFooterTop}>
-                  <Text style={styles.recipeTitle}>{item.title}</Text>
-                  <View style={styles.categoryBadge}>
-                    <Text style={styles.categoryBadgeText}>{item.category}</Text>
+                  <Text style={[styles.recipeTitle, { flex: 1 }]} numberOfLines={2}>{item.title}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={styles.categoryBadge}>
+                      <Text style={styles.categoryBadgeText}>{badgeFor(item)}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => handleRemove(item)} accessibilityLabel={`Borrar ${item.title} del historial`}>
+                      <Feather name="trash-2" size={16} color={colors.text50} />
+                    </TouchableOpacity>
                   </View>
                 </View>
 
                 <View style={styles.cardFooterBottom}>
                   <View style={styles.metaInfo}>
                     <Feather name="clock" size={14} color={colors.primary} />
-                    <Text style={styles.metaText}>{item.time}</Text>
+                    <Text style={styles.metaText}>{formatTimestamp(item.createdAt)}</Text>
                   </View>
                   <View style={styles.metaInfo}>
                     <Feather name={item.type === 'Plan Semanal' ? 'check-circle' : 'coffee'} size={14} color={colors.primary} />

@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,31 +6,90 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { UserContext } from '../context/UserContext';
-import { RECIPES, getRecipeById } from '../data/recipes';
 import { colors } from '../theme/colors';
-import { Screen, RecipeImage } from '../components';
+import { Screen, RecipeImage, LoadingState, ErrorState, AddToPlanModal } from '../components';
+import { MEAL_SLOTS } from '../data/mealSlots';
+import { formatDayLabel, toPlanMeal } from '../utils/plan';
+import { categoryLabel } from '../data/categories';
+import { areaLabel } from '../data/areas';
+import { getAllergyConflicts } from '../utils/recipeFilters';
+import { useRecipe } from '../hooks/useRecipes';
+import { useRecipeTranslation } from '../hooks/useRecipeTranslation';
 
 export default function RecipeDetailScreen({ route, navigation }) {
-  const { favorites, toggleFavorite } = useContext(UserContext);
+  const { toggleFavorite, isFavorite, allergies, addViewed, plan, setMeal } = useContext(UserContext);
+  const [planModalVisible, setPlanModalVisible] = useState(false);
 
-  // La receta llega por parámetro (recipeId). Si no llega, mostramos la primera.
-  const recipe = getRecipeById(route.params?.recipeId) || RECIPES[0];
-  const { ingredients, steps } = recipe;
-  const isFavorite = favorites.includes(recipe.id);
+  // Desde la lista llega la receta parcial (nombre y foto); los ingredientes y pasos se piden a la API
+  const { recipeId, recipe: initialRecipe } = route.params || {};
+  const { recipe, status, error, reload } = useRecipe(recipeId, initialRecipe);
+
+  // Cada receta que se abre queda en "Vistas recientemente" (se actualiza cuando llegan los datos completos)
+  useEffect(() => {
+    if (recipe) addViewed(recipe);
+  }, [recipe, addViewed]);
+
+  // Traducción al español bajo demanda (con caché en el celular)
+  const translation = useRecipeTranslation(recipe);
 
   const handleBack = () => {
     navigation.goBack();
   };
 
+  const backButton = (
+    <TouchableOpacity style={styles.circularButton} onPress={handleBack} accessibilityLabel="Volver">
+      <Feather name="chevron-left" size={20} color={colors.text} style={{ marginRight: 2 }} />
+    </TouchableOpacity>
+  );
+
+  // Sin ningún dato todavía: pantalla de carga o de error
+  if (!recipe) {
+    return (
+      <Screen>
+        <View style={styles.floatingHeader}>{backButton}</View>
+        <View style={styles.fallback}>
+          {status === 'error' ? (
+            <ErrorState title="No pudimos cargar la receta" message={error} onRetry={reload} />
+          ) : (
+            <LoadingState message="Cargando receta..." />
+          )}
+        </View>
+      </Screen>
+    );
+  }
+
+  const favorite = isFavorite(recipe.id);
+  const isLoaded = !recipe.isPartial;
+  // Si el usuario eligió ver la traducción, se muestran los textos en español (mismas cantidades que el original)
+  const spanish = translation.showSpanish ? translation.data : null;
+  const titleText = spanish ? spanish.title : recipe.title;
+  const ingredients = spanish ? spanish.ingredients : recipe.ingredients;
+  const steps = spanish ? spanish.steps : recipe.steps;
+  const conflicts = isLoaded ? getAllergyConflicts(recipe.allergens, allergies) : [];
+
   const handleCameraRecord = () => {
-    navigation.navigate('PreparationRecord', { recipeTitle: recipe.title });
+    navigation.navigate('PreparationRecord', { recipe: toPlanMeal(recipe), source: 'free' });
   };
 
-  const handleAddToPlan = () => {
-    Alert.alert('Plan semanal', '¡Receta añadida a tu plan semanal!');
+  const handleAddToPlan = () => setPlanModalVisible(true);
+
+  // Guarda la receta en el plan (AsyncStorage) y ofrece ir directo a ese día
+  const handleConfirmPlan = (key, slotId) => {
+    setMeal(key, slotId, recipe);
+    setPlanModalVisible(false);
+    const slot = MEAL_SLOTS.find((s) => s.id === slotId);
+    Alert.alert(
+      'Plan semanal',
+      `Añadiste "${recipe.title}" a ${slot.title.toLowerCase()} (${formatDayLabel(key).toLowerCase()}).`,
+      [
+        { text: 'Seguir aquí', style: 'cancel' },
+        { text: 'Ver plan', onPress: () => navigation.navigate('MainTabs', { screen: 'PlanTab', params: { dateKey: key } }) },
+      ]
+    );
   };
 
   return (
@@ -38,38 +97,42 @@ export default function RecipeDetailScreen({ route, navigation }) {
 
       {/* Header Flotante superior */}
       <View style={styles.floatingHeader}>
-        <TouchableOpacity style={styles.circularButton} onPress={handleBack} accessibilityLabel="Volver">
-          <Feather name="chevron-left" size={20} color={colors.text} style={{ marginRight: 2 }} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.circularButton} onPress={() => toggleFavorite(recipe.id)} accessibilityLabel={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}>
-          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={18} color={colors.danger} />
+        {backButton}
+        <TouchableOpacity
+          style={styles.circularButton}
+          onPress={() => toggleFavorite(recipe)}
+          accessibilityLabel={favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+        >
+          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={18} color={colors.danger} />
         </TouchableOpacity>
       </View>
 
       {/* ScrollView principal */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Hero Imagen / Platillo */}
         <View style={styles.heroContainer}>
           <RecipeImage uri={recipe.image} icon={recipe.icon} />
           <View style={styles.heroTag}>
-            <Text style={styles.heroTagText}>{recipe.category} · {recipe.tag}</Text>
+            <Text style={styles.heroTagText}>
+              {categoryLabel(recipe.category)}{areaLabel(recipe.area) ? ` · ${areaLabel(recipe.area)}` : ''}
+            </Text>
           </View>
         </View>
 
         {/* Tarjeta Principal de Información */}
         <View style={styles.mainInfoCard}>
-          <Text style={styles.recipeTitle}>{recipe.title}</Text>
+          <Text style={styles.recipeTitle}>{titleText}</Text>
 
           {/* Fila de Metadatos */}
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <View style={[styles.metaIconBox, { backgroundColor: colors.primarySoft }]}>
-                <Feather name="clock" size={14} color={colors.primary} />
+                <Feather name="tag" size={14} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.metaLabel}>Tiempo</Text>
-                <Text style={styles.metaValue}>{recipe.time}</Text>
+                <Text style={styles.metaLabel}>Categoría</Text>
+                <Text style={styles.metaValue} numberOfLines={1}>{categoryLabel(recipe.category)}</Text>
               </View>
             </View>
 
@@ -77,11 +140,11 @@ export default function RecipeDetailScreen({ route, navigation }) {
 
             <View style={styles.metaItem}>
               <View style={[styles.metaIconBox, { backgroundColor: 'rgba(230, 57, 70, 0.1)' }]}>
-                <Ionicons name="flame" size={14} color={colors.danger} />
+                <Feather name="map-pin" size={14} color={colors.danger} />
               </View>
               <View>
-                <Text style={styles.metaLabel}>Calorías</Text>
-                <Text style={styles.metaValue}>{recipe.kcal} kcal</Text>
+                <Text style={styles.metaLabel}>Origen</Text>
+                <Text style={styles.metaValue} numberOfLines={1}>{isLoaded ? areaLabel(recipe.area) || '—' : '...'}</Text>
               </View>
             </View>
 
@@ -89,54 +152,114 @@ export default function RecipeDetailScreen({ route, navigation }) {
 
             <View style={styles.metaItem}>
               <View style={[styles.metaIconBox, { backgroundColor: colors.primarySoft }]}>
-                <Feather name="user" size={14} color={colors.primary} />
+                <Feather name="list" size={14} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.metaLabel}>Porciones</Text>
-                <Text style={styles.metaValue}>{recipe.servings} {recipe.servings === 1 ? 'pers.' : 'pers.'}</Text>
+                <Text style={styles.metaLabel}>Ingredientes</Text>
+                <Text style={styles.metaValue}>{isLoaded ? ingredients.length : '...'}</Text>
               </View>
             </View>
           </View>
 
-          {/* Sección: Ingredientes */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Ingredientes</Text>
-              <Text style={styles.sectionSubtitleBadge}>{ingredients.length} elementos</Text>
+          {/* Aviso de alérgenos (estimado a partir de los ingredientes) */}
+          {conflicts.length > 0 ? (
+            <View style={[styles.noticeBox, styles.noticeBoxDanger]}>
+              <Text style={[styles.noticeText, styles.noticeTextDanger]}>
+                Ojo: contiene {conflicts.join(', ')}, que marcaste en tus alergias.
+              </Text>
+              <Text style={styles.noticeText}>Es una estimación según los ingredientes. Verifícalo antes de cocinar.</Text>
             </View>
+          ) : isLoaded && recipe.allergens && recipe.allergens.length > 0 ? (
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeText}>Contiene (estimado): {recipe.allergens.join(', ')}</Text>
+            </View>
+          ) : null}
 
-            <View style={styles.ingredientsCard}>
-              {ingredients.map((item, index) => (
-                <View key={index} style={[styles.ingredientRow, index !== ingredients.length - 1 && styles.ingredientBorder]}>
-                  <View style={styles.checkIconBox}>
-                    <Feather name="check" size={11} color={colors.primary} />
+          {/* Mientras llegan los datos completos, o si falló la carga */}
+          {!isLoaded ? (
+            status === 'error' ? (
+              <ErrorState title="No pudimos cargar los ingredientes" message={error} onRetry={reload} />
+            ) : (
+              <LoadingState message="Cargando ingredientes y pasos..." />
+            )
+          ) : (
+            <>
+              {/* Traducción al español: la API de recetas solo entrega inglés */}
+              <View style={styles.translateRow}>
+                {translation.status === 'loading' ? (
+                  <View style={styles.translateBtn}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.translateBtnText}>Traduciendo...</Text>
                   </View>
-                  <Text style={styles.ingredientText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.translateBtn}
+                    onPress={translation.showSpanish ? translation.showOriginal : translation.translate}
+                    accessibilityRole="button"
+                  >
+                    <Feather name="globe" size={14} color={colors.primary} />
+                    <Text style={styles.translateBtnText}>
+                      {translation.showSpanish
+                        ? 'Ver original (inglés)'
+                        : translation.status === 'error'
+                          ? 'Reintentar traducción'
+                          : translation.data
+                            ? 'Ver en español'
+                            : 'Traducir al español'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {translation.status === 'error' ? <Text style={styles.translateError}>{translation.error}</Text> : null}
+                {translation.showSpanish ? (
+                  <Text style={styles.translateNote}>Traducción automática: puede tener errores.</Text>
+                ) : null}
+              </View>
 
-          {/* Sección: Paso a paso */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Paso a paso</Text>
-            <View style={styles.stepsContainer}>
-              {steps.map((stepText, index) => (
-                <View key={index} style={styles.stepCard}>
-                  <View style={styles.stepNumberBox}>
-                    <Text style={styles.stepNumberText}>{index + 1}</Text>
+              {/* Sección: Ingredientes */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>Ingredientes</Text>
+                  <Text style={styles.sectionSubtitleBadge}>{ingredients.length} elementos</Text>
+                </View>
+
+                <View style={styles.ingredientsCard}>
+                  {ingredients.map((item, index) => (
+                    <View key={index} style={[styles.ingredientRow, index !== ingredients.length - 1 && styles.ingredientBorder]}>
+                      <View style={styles.checkIconBox}>
+                        <Feather name="check" size={11} color={colors.primary} />
+                      </View>
+                      <Text style={styles.ingredientText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {/* Sección: Paso a paso */}
+              <View style={styles.sectionContainer}>
+                <Text style={styles.sectionTitle}>Paso a paso</Text>
+                {steps.length === 0 ? (
+                  <Text style={styles.emptyStepsText}>Esta receta no trae instrucciones.</Text>
+                ) : (
+                  <View style={styles.stepsContainer}>
+                    {steps.map((stepText, index) => (
+                      <View key={index} style={styles.stepCard}>
+                        <View style={styles.stepNumberBox}>
+                          <Text style={styles.stepNumberText}>{index + 1}</Text>
+                        </View>
+                        <Text style={styles.stepText}>{stepText}</Text>
+                      </View>
+                    ))}
                   </View>
-                  <Text style={styles.stepText}>{stepText}</Text>
-                </View>
-              ))}
-            </View>
+                )}
 
-            {/* Botón Ya lo cociné */}
-            <TouchableOpacity style={styles.cameraButton} onPress={handleCameraRecord}>
-              <Feather name="camera" size={18} color={colors.primary} />
-              <Text style={styles.cameraButtonText}>¡Ya lo cociné! Registrar foto</Text>
-            </TouchableOpacity>
-          </View>
+                {/* Botón Ya lo cociné */}
+                <TouchableOpacity style={styles.cameraButton} onPress={handleCameraRecord}>
+                  <Feather name="camera" size={18} color={colors.primary} />
+                  <Text style={styles.cameraButtonText}>¡Ya lo cociné! Registrar foto</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
         </View>
       </ScrollView>
@@ -148,11 +271,76 @@ export default function RecipeDetailScreen({ route, navigation }) {
           <Text style={styles.addToPlanText}>Añadir al Plan Semanal</Text>
         </TouchableOpacity>
       </View>
+      <AddToPlanModal
+        visible={planModalVisible}
+        recipeTitle={recipe.title}
+        plan={plan}
+        onClose={() => setPlanModalVisible(false)}
+        onConfirm={handleConfirmPlan}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  translateRow: {
+    marginTop: 16,
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  translateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primaryMid,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  translateBtnText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  translateError: {
+    fontSize: 12,
+    color: colors.danger,
+  },
+  translateNote: {
+    fontSize: 11,
+    color: colors.text50,
+  },
+  fallback: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  noticeBox: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+  },
+  noticeBoxDanger: {
+    backgroundColor: 'rgba(230, 57, 70, 0.1)',
+  },
+  noticeText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.text,
+  },
+  noticeTextDanger: {
+    color: colors.danger,
+    fontWeight: '700',
+  },
+  emptyStepsText: {
+    fontSize: 13,
+    color: colors.text60,
+    marginTop: 8,
+  },
   floatingHeader: {
     position: 'absolute',
     top: 40,

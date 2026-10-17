@@ -1,8 +1,8 @@
 import React, { useState, useContext } from 'react';
 import { UserContext } from '../context/UserContext';
 import { Chip, OnboardingStep } from '../components';
+import { DIET_OPTIONS } from '../data/preferences';
 
-const DIET_OPTIONS = ['Tradicional', 'Vegetariano', 'Vegano', 'Keto', 'Pescatariano'];
 
 export default function DietaryPreferencesScreen({ route, navigation }) {
   // mode: 'onboarding' (viene del registro) | 'edit' (viene del Perfil)
