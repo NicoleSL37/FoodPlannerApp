@@ -10,7 +10,7 @@ Proyecto del curso *Desarrollo de Aplicaciones Móviles* (proyecto 5 de la guía
 | ------ | ------ | ------- |
 | **APF1** (semana 5) | ✅ Entregado y mejorado | Estructura, interfaz, props, estado, formulario validado y navegación |
 | **APF2** (semana 10) | ✅ Entregado | Hooks, consumo de API, estados loading/error/vacío y AsyncStorage |
-| APF3 (semana 15) | ⏳ Pendiente | Cámara, permisos y notificaciones locales |
+| APF3 (semana 15) | 🔄 En progreso | Cámara y permisos; avisos locales pendientes |
 
 ## ✨ Funcionalidades actuales
 
@@ -24,7 +24,18 @@ Proyecto del curso *Desarrollo de Aplicaciones Móviles* (proyecto 5 de la guía
 - **Todo se guarda en el celular (AsyncStorage):** la sesión, la dieta y alergias, los favoritos, las recetas vistas, el plan semanal, el historial de preparaciones y los ajustes. Al cerrar y abrir la app sigues dentro y no pierdes nada.
 - **Plan semanal (persistente):** calendario de 19 días con 4 comidas por día (desayuno, almuerzo, snack, cena). Se agregan recetas desde el **detalle** ("Añadir al Plan Semanal": eliges día y comida) o desde el **Plan** (eliges entre tus favoritas y vistas). Se pueden abrir y quitar; los días con comidas se marcan con un punto y se muestra cuántas comidas del día están planificadas. Se guarda en AsyncStorage por usuario.
 - **Registro de preparación e historial (persistentes):** al completar una comida del Plan (o desde el botón de cámara de una receta) se abre el registro y "Guardar en mi Historial" guarda la preparación con fecha, hora y foto opcional capturada con la cámara del dispositivo. Las fotos quedan en el almacenamiento privado de la app y se eliminan al borrar el registro. El **Historial** separa *Plan Semanal* y *Cocina Libre*, muestra estado vacío y permite borrar registros; en el Plan, la comida completada queda marcada como "Hecho".
-- **Perfil y ajustes (persistentes):** cierre de sesión que limpia el estado del usuario. En Configuración, los interruptores de notificaciones y recordatorios de comida se guardan por usuario; si apagas las notificaciones, los recordatorios quedan desactivados. Los avisos reales llegan en el APF3.
+- **Perfil y ajustes (persistentes):** cierre de sesión que limpia el estado del usuario. En Configuración, al activar las notificaciones se solicita el permiso del sistema; los recordatorios solo se pueden activar con ese permiso concedido. Si apagas las notificaciones o el sistema revoca el permiso, los recordatorios quedan desactivados.
+
+## Permisos
+
+Los permisos se solicitan cuando se necesita la función. La aplicación vuelve a consultar el estado al regresar al primer plano para reflejar cambios hechos desde los ajustes del dispositivo.
+
+| Permiso | Cuándo se pide | Si se acepta | Si se rechaza o bloquea |
+| ------- | -------------- | ------------ | ----------------------- |
+| Cámara | Al entrar en el registro de preparación | Se activa la vista previa para fotografiar el platillo; la foto es opcional | Si se puede volver a preguntar, aparece **Volver a intentar**; si está bloqueado, aparece **Abrir ajustes**. El registro se puede guardar sin foto |
+| Notificaciones | Al activar **Notificaciones Push** en Configuración | Se activa el ajuste y se pueden habilitar los recordatorios | Si se puede volver a preguntar, el aviso ofrece **Volver a intentar**; si está bloqueado, ofrece **Abrir ajustes**. El ajuste queda apagado |
+
+Las notificaciones locales se prueban en un development build o APK, no en Expo Go.
 
 ## 🌐 API: TheMealDB
 
@@ -69,10 +80,10 @@ src/
 ├── components/           # Componentes reutilizables (ver tabla)
 ├── context/              # Estado global del usuario (UserContext)
 ├── data/                 # Categorías, orígenes en español, preferencias y comidas del día (mealSlots)
-├── hooks/                # useRecipes, useRecipe, useDebouncedValue, useRecipeTranslation
+├── hooks/                # useRecipes, useRecipe, useDebouncedValue, useRecipeTranslation, usePermission
 ├── navigation/           # Stack + Tabs (AppNavigator)
 ├── screens/              # Pantallas de la app
-├── services/             # recipesService (API de recetas) y translationService (API de traducción)
+├── services/             # recipesService, translationService y permissionsService
 ├── storage/              # AsyncStorage: sesión y datos del usuario
 ├── theme/                # Paleta de colores única (colors.js)
 └── utils/                # Glosario de traducción (translationGlossary), validaciones, filtros, conversión de datos de la API (mealMapper) y fechas del plan (plan.js)
@@ -106,6 +117,7 @@ Al abrir la app se muestra "Cargando tu cuenta..." mientras se lee lo guardado y
 | `useRecipe(id, initialRecipe)` | Pide una receta completa; muestra lo que ya se conoce mientras llega el resto |
 | `useRecipeTranslation(recipe)` | Busca la traducción guardada al abrir la receta; `translate` la pide al servicio y la guarda. Devuelve `status`, `error`, `data` y `showSpanish` |
 | `useDebouncedValue(value, delay)` | Espera a que el usuario deje de escribir antes de buscar, para no llamar a la API en cada letra |
+| `usePermission(kind)` | Consulta y solicita permisos de cámara o notificaciones, y actualiza el estado al volver a la app |
 
 ### Componentes reutilizables
 
@@ -143,6 +155,7 @@ Todos se importan desde un solo lugar: `import { Screen, Chip } from '../compone
 - `@react-native-async-storage/async-storage`
 - API de traducción MyMemory (`fetch` con tiempo máximo de 10 s)
 - `@expo/vector-icons`
+- `expo-camera`, `expo-file-system` y `expo-notifications`
 
 ## ▶️ Instalación y ejecución
 

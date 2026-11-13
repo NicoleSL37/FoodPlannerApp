@@ -1,5 +1,5 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import { CameraView } from 'expo-camera';
 import { Directory, File, Paths } from 'expo-file-system';
 import { useIsFocused } from '@react-navigation/native';
 import {
@@ -10,13 +10,13 @@ import {
   ScrollView,
   Alert,
   Image,
-  Linking,
   ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
 import { Screen, ScreenHeader } from '../components';
+import usePermission from '../hooks/usePermission';
 
 export default function PreparationRecordScreen({ route, navigation }) {
   const { addHistory } = useContext(UserContext);
@@ -24,34 +24,23 @@ export default function PreparationRecordScreen({ route, navigation }) {
   // Llega desde el Plan (source 'plan', con día y comida) o desde el detalle de una receta (source 'free')
   const { recipe, source = 'free', planKey = null, slotId = null } = route.params || {};
   const recipeTitle = recipe?.title || route.params?.recipeTitle || 'Tu platillo';
-  const [permission, requestPermission] = useCameraPermissions();
-  const [permissionChecked, setPermissionChecked] = useState(false);
+  const { status: permissionStatus, request: requestCameraPermission, openSettings, isLoading: permissionLoading } = usePermission('camera');
   const [facing, setFacing] = useState('back');
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [capturedUri, setCapturedUri] = useState(null);
   const [capturedImageReady, setCapturedImageReady] = useState(false);
-  const [photoUri, setPhotoUri] = useState(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const cameraRef = useRef(null);
   const photoUriRef = useRef(null);
+  const cameraPermissionRequested = useRef(false);
 
   useEffect(() => {
-    if (!permission || permissionChecked) return;
-    setPermissionChecked(true);
-    if (permission.granted || permission.canAskAgain === false) return;
-    requestPermission().catch((error) => console.warn('[camara] No se pudo solicitar el permiso:', error));
-  }, [permission, permissionChecked, requestPermission]);
-
-  const handleRetryPermission = useCallback(async () => {
-    try {
-      const result = await requestPermission();
-      if (!result.granted) console.warn('[camara] Permiso de cámara denegado.');
-    } catch (error) {
-      console.warn('[camara] No se pudo volver a solicitar el permiso:', error);
-    }
-  }, [requestPermission]);
+    if (permissionLoading || permissionStatus !== 'undetermined' || cameraPermissionRequested.current) return;
+    cameraPermissionRequested.current = true;
+    requestCameraPermission();
+  }, [permissionLoading, permissionStatus, requestCameraPermission]);
 
   const handleBack = () => {
     navigation.goBack();
@@ -84,7 +73,6 @@ export default function PreparationRecordScreen({ route, navigation }) {
       if (!destination.exists) throw new Error('La copia terminó, pero el archivo no está disponible.');
       const previousPhotoUri = photoUriRef.current;
       photoUriRef.current = destination.uri;
-      setPhotoUri(destination.uri);
       if (previousPhotoUri) {
         try { new File(previousPhotoUri).delete(); } catch (error) { console.warn('[camara] No se pudo reemplazar la foto anterior:', error); }
       }
@@ -145,7 +133,7 @@ export default function PreparationRecordScreen({ route, navigation }) {
 
         {/* Cámara real y estados de permiso/captura */}
         <View style={styles.cameraViewfinder}>
-          {isFocused && permission?.granted && !capturedUri && (
+          {isFocused && permissionStatus === 'granted' && !capturedUri && (
             <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing}
               flash={facing === 'back' && flashEnabled ? 'on' : 'off'}
               onCameraReady={() => setCameraReady(true)}
@@ -165,14 +153,20 @@ export default function PreparationRecordScreen({ route, navigation }) {
               <Text style={styles.processingText}>Procesando foto...</Text>
             </View>
           )}
-          {!permission?.granted && (
+          {permissionStatus !== 'granted' && (
             <View style={styles.permissionPanel}>
-              <Feather name="camera-off" size={34} color={colors.white} />
-              <Text style={styles.permissionText}>{permission?.canAskAgain === false
-                ? 'El permiso de cámara está desactivado. Actívalo en los ajustes del dispositivo.'
-                : 'Necesitamos permiso para usar la cámara. También puedes guardar el registro sin foto.'}</Text>
-              {permission?.canAskAgain !== false && <TouchableOpacity style={styles.permissionButton} onPress={handleRetryPermission}><Text style={styles.permissionButtonText}>Volver a intentar</Text></TouchableOpacity>}
-              <TouchableOpacity style={styles.permissionButton} onPress={() => Linking.openSettings().catch((error) => console.warn('[camara] No se pudieron abrir los ajustes:', error))}><Text style={styles.permissionButtonText}>Abrir ajustes</Text></TouchableOpacity>
+              {permissionLoading ? <ActivityIndicator color={colors.white} /> : <Feather name="camera-off" size={34} color={colors.white} />}
+              <Text style={styles.permissionText}>{permissionLoading
+                ? 'Comprobando el permiso de cámara...'
+                : permissionStatus === 'blocked'
+                  ? 'El permiso de cámara está desactivado. Actívalo en los ajustes del dispositivo.'
+                  : 'Necesitamos permiso para fotografiar tu platillo. También puedes guardar el registro sin foto.'}</Text>
+              {!permissionLoading && <TouchableOpacity style={styles.permissionButton} onPress={() => navigation.goBack()}><Text style={styles.permissionButtonText}>Ahora no</Text></TouchableOpacity>}
+              {!permissionLoading && <TouchableOpacity style={styles.permissionButton} onPress={requestCameraPermission}><Text style={styles.permissionButtonText}>Volver a intentar</Text></TouchableOpacity>}
+              {!permissionLoading && <TouchableOpacity style={styles.permissionButton} onPress={async () => {
+                const opened = await openSettings();
+                if (!opened) Alert.alert('No se pudieron abrir los ajustes', 'Puedes activar el permiso de cámara desde los ajustes del dispositivo.');
+              }}><Text style={styles.permissionButtonText}>Abrir ajustes</Text></TouchableOpacity>}
             </View>
           )}
           {/* Indicador superior en vivo */}
@@ -181,22 +175,12 @@ export default function PreparationRecordScreen({ route, navigation }) {
               <View style={styles.pulsingDot} />
               <Text style={styles.liveText}>En vivo</Text>
             </View>
-            {isFocused && permission?.granted && !capturedUri && facing === 'back' && <TouchableOpacity style={[styles.flashButton, flashEnabled && styles.flashButtonActive]}
+            {isFocused && permissionStatus === 'granted' && !capturedUri && facing === 'back' && <TouchableOpacity style={[styles.flashButton, flashEnabled && styles.flashButtonActive]}
               onPress={() => setFlashEnabled((current) => !current)}
               accessibilityRole="button" accessibilityLabel={flashEnabled ? 'Apagar flash' : 'Encender flash'}>
               <Feather name="zap" size={13} color={flashEnabled ? colors.primary : colors.white} />
             </TouchableOpacity>}
           </View>
-
-          {/* Ícono central */}
-          {(!isFocused || !permission?.granted) && !capturedUri && <View pointerEvents="none" style={styles.cameraCenterContent}>
-            <View style={styles.cameraIconCircle}>
-              <Feather name="camera" size={48} color="rgba(255,255,255,0.35)" />
-            </View>
-            <Text style={styles.cameraGuideText}>
-              {photoUri ? 'Foto guardada para este registro' : 'Apunta hacia tu platillo terminado'}
-            </Text>
-          </View>}
 
           {/* Marcos guía en esquinas */}
           <View style={[styles.guideCorner, styles.cornerTL]} />
@@ -206,10 +190,10 @@ export default function PreparationRecordScreen({ route, navigation }) {
         </View>
 
         {/* Controles de Cámara */}
-        {isFocused && permission?.granted && capturedUri && capturedImageReady ? <View style={styles.photoActions}>
+        {isFocused && permissionStatus === 'granted' && capturedUri && capturedImageReady ? <View style={styles.photoActions}>
           <TouchableOpacity style={styles.secondaryAction} onPress={() => { setCameraReady(false); setCapturedUri(null); }}><Text style={styles.secondaryActionText}>Repetir</Text></TouchableOpacity>
           <TouchableOpacity style={styles.usePhotoAction} onPress={handleUsePhoto} disabled={busy}><Text style={styles.usePhotoActionText}>{busy ? 'Guardando…' : 'Usar esta foto'}</Text></TouchableOpacity>
-        </View> : !capturedUri && isFocused && permission?.granted && <View style={styles.cameraControlsRow}>
+        </View> : !capturedUri && isFocused && permissionStatus === 'granted' && <View style={styles.cameraControlsRow}>
 
           {/* Obturador */}
           <TouchableOpacity style={styles.shutterButton} onPress={handleCapture} disabled={!cameraReady || busy || Boolean(capturedUri)} accessibilityRole="button" accessibilityLabel="Tomar foto">
@@ -346,26 +330,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   flashButtonActive: { backgroundColor: colors.white },
-  cameraCenterContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  cameraIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  cameraGuideText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.4)',
-    letterSpacing: 0.3,
-  },
   guideCorner: {
     position: 'absolute',
     width: 24,

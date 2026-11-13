@@ -10,10 +10,21 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.foodplanner.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "FoodPlanner necesita usar la cámara para guardar fotos de tus preparaciones."
+        "NSCameraUsageDescription": "FoodPlanner necesita acceder a la cámara para fotografiar el platillo preparado."
       }
     },
     "android": {
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -29,13 +40,24 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "FoodPlanner necesita usar la cámara para guardar fotos de tus preparaciones.",
+          "cameraPermission": "FoodPlanner necesita acceder a la cámara para fotografiar el platillo preparado.",
           "recordAudioAndroid": false
         }
       ],
       "expo-file-system",
       "expo-status-bar",
-      "expo-font"
-    ]
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "enableRemoteNotifications": false
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d37a0268-6075-4f7f-9ca2-397f5daa2fe0"
+      }
+    }
   }
 }
