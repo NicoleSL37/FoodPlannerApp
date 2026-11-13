@@ -1,5 +1,5 @@
 import { Linking, Platform } from 'react-native';
-import * as Camera from 'expo-camera';
+import { Camera } from 'expo-camera';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { getJSON, setJSON } from '../storage/storage';
