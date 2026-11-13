@@ -3,15 +3,23 @@ import { Camera } from 'expo-camera';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { getJSON, setJSON } from '../storage/storage';
+import { logger } from '../utils/logger';
 
-const warn = (action, error) => console.warn(`[permisos] ${action}:`, error);
+const warn = (action, error) => logger.warn('permisos', action, error);
 const permissionLabel = (kind) => kind === 'camera' ? 'cámara' : 'notificaciones';
 const isExpoGo = Constants.executionEnvironment === 'storeClient' && Constants.appOwnership === 'expo';
 
 function logPermissionResult(kind, permission, action) {
     const status = permission?.status ?? 'desconocido';
     const canAskAgain = typeof permission?.canAskAgain === 'boolean' ? permission.canAskAgain : 'desconocido';
-    console.warn(`[permisos] ${permissionLabel(kind)} status=${status} canAskAgain=${canAskAgain} accion=${action}`);
+    logger.debug('permisos', `${permissionLabel(kind)} status=${status} canAskAgain=${canAskAgain} accion=${action}`);
+}
+
+function logPermissionStatus(kind, status, action) {
+    const message = `Permiso de ${permissionLabel(kind)}: ${status} (acción ${action}).`;
+    if (status === 'granted') logger.info('permisos', message);
+    else if (status === 'denied' || status === 'blocked' || status === 'unavailable') logger.warn('permisos', message);
+    else logger.debug('permisos', message);
 }
 
 function logUnavailable(kind, permission, action) {
@@ -81,11 +89,12 @@ export async function checkPermission(kind) {
         logPermissionResult(kind, permission, 'check');
         const status = normalizePermission(permission, kind);
         if (status === 'unavailable') logUnavailable(kind, permission, 'check');
-        if (status === 'denied' && await wasPermissionRequested(kind)) return 'blocked';
-        return status;
+        const finalStatus = status === 'denied' && await wasPermissionRequested(kind) ? 'blocked' : status;
+        logPermissionStatus(kind, finalStatus, 'check');
+        return finalStatus;
     } catch (error) {
         logPermissionResult(kind, null, 'check');
-        warn(`No se pudo consultar el permiso de ${kind}`, error);
+        logger.error('permisos', `No se pudo consultar el permiso de ${kind}.`, error);
         return 'unavailable';
     }
 }
@@ -101,10 +110,12 @@ export async function requestPermission(kind) {
         const alreadyRequested = await wasPermissionRequested(kind);
         if (beforeStatus === 'granted') {
             logPermissionResult(kind, beforePermission, 'request');
+            logPermissionStatus(kind, 'granted', 'request');
             return 'granted';
         }
         if (beforeStatus === 'blocked' || (beforeStatus === 'denied' && alreadyRequested)) {
             logPermissionResult(kind, beforePermission, 'request');
+            logPermissionStatus(kind, 'blocked', 'request');
             return 'blocked';
         }
 
@@ -122,11 +133,12 @@ export async function requestPermission(kind) {
         await markPermissionRequested(kind);
         const requestedStatus = normalizePermission(result, kind);
         if (requestedStatus === 'unavailable') logUnavailable(kind, result, 'request');
-        if (requestedStatus === 'denied' && beforeStatus === 'denied') return 'blocked';
-        return requestedStatus;
+        const finalStatus = requestedStatus === 'denied' && beforeStatus === 'denied' ? 'blocked' : requestedStatus;
+        logPermissionStatus(kind, finalStatus, 'request');
+        return finalStatus;
     } catch (error) {
         logPermissionResult(kind, permissionForLog, 'request');
-        warn(`No se pudo solicitar el permiso de ${kind}`, error);
+        logger.error('permisos', `No se pudo solicitar el permiso de ${kind}.`, error);
         return 'unavailable';
     }
 }

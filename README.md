@@ -10,7 +10,7 @@ Proyecto del curso *Desarrollo de Aplicaciones Móviles* (proyecto 5 de la guía
 | ------ | ------ | ------- |
 | **APF1** (semana 5) | ✅ Entregado y mejorado | Estructura, interfaz, props, estado, formulario validado y navegación |
 | **APF2** (semana 10) | ✅ Entregado | Hooks, consumo de API, estados loading/error/vacío y AsyncStorage |
-| APF3 (semana 15) | 🔄 En progreso | Cámara, permisos y notificaciones locales |
+| APF3 (semana 15) | 🟡 Casi listo, falta documentación final | Cámara, permisos, notificaciones locales, validaciones, manejo de errores y registro de eventos |
 
 ## ✨ Funcionalidades actuales
 
@@ -47,6 +47,39 @@ Los recordatorios son notificaciones locales para las comidas del Plan Semanal. 
 | Llega la hora de una comida | Se muestra «Hora de tu …» 15 minutos antes; al tocar el aviso se abre la receta o el Plan |
 
 Las notificaciones locales se prueban en un development build o APK, no en Expo Go.
+
+## Manejo de errores, validaciones y logging
+
+El registro central está en `src/utils/logger.js`. Cada evento se imprime con el formato `[fecha ISO] [NIVEL] [módulo] mensaje`. Los niveles son **INFO** (eventos importantes), **WARN** (situaciones recuperables), **ERROR** (fallos) y **DEBUG** (solo durante desarrollo). El búfer conserva los 100 eventos recientes en memoria y AsyncStorage conserva hasta 50 errores entre sesiones. Los correos se enmascaran y los campos sensibles se ocultan.
+
+| Módulo | Eventos registrados |
+| ------ | ------------------- |
+| `app` | Inicio de la aplicación, inicio, recuperación y cierre de sesión (correo enmascarado) |
+| `permisos` | Comprobación, solicitud y resultado de permisos; errores al abrir ajustes |
+| `camara` | Captura, guardado, archivo ausente o fallido y foto borrada |
+| `notificaciones` | Programación, cancelación, omisiones por hora pasada, sincronización y errores (con conteos) |
+| `red` | Fallos de consulta, respuesta inválida, espera agotada y falta de conexión |
+| `almacenamiento` | Fallos de lectura o escritura y datos corruptos recuperados con valores predeterminados |
+| `navegacion` | Fallos al procesar respuestas de notificaciones |
+| `plan` / `historial` | Datos inválidos y fotos faltantes en registros |
+
+`ErrorBoundary` captura errores de renderizado, registra el mensaje y la pila de componentes y presenta una pantalla de recuperación con **Reintentar** y, si hay navegación disponible, **Volver al inicio**. Un manejador global registra errores JavaScript no capturados y delega también en el manejador previo de React Native.
+
+| Pantalla o flujo | Validación | Mensaje o respuesta |
+| --------------- | ---------- | ------------------- |
+| Plan | La receta debe tener un identificador | Se informa que la receta no se puede planificar |
+| Plan / Detalle | Un horario ocupado requiere confirmar el reemplazo | Se pide confirmación antes de sustituir la comida |
+| Plan | Si la hora ya pasó, se guarda la comida sin programar aviso | «Este horario ya pasó, no se programará recordatorio» |
+| Registro de preparación | Se comprueba que el archivo de la foto exista; si falta, permite guardar sin foto | Aviso claro y opción de continuar sin foto |
+| Registro de preparación | El botón de guardado se bloquea mientras se guarda | Evita registros duplicados por doble toque |
+| Acceso y registro | Campos vacíos o inválidos no se guardan | Error visible junto al formulario o aviso claro |
+| Preferencias | Debe elegirse una opción válida | Aviso antes de guardar |
+| Servicios de red | Tiempo máximo, errores HTTP y falta de conexión controlados | Estado de error con reintento; falta de conexión se identifica expresamente |
+| Almacenamiento | JSON corrupto se descarta de forma segura | Valores predeterminados y error en el registro |
+
+Optimizaciones aplicadas: `FlatList` para el historial con render inicial acotado y recorte en Android; tarjetas de listas memorizadas con `React.memo`; callbacks estabilizados en listas de recetas; valor del contexto memorizado; imágenes de lista con respaldo visual; listeners con limpieza al desmontar.
+
+Para consultar el registro en el teléfono, abre **Configuración → Diagnóstico → Ver registro de eventos**. Puedes filtrar por nivel y borrar los eventos con confirmación.
 
 ## 🌐 API: TheMealDB
 

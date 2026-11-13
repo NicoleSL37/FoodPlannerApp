@@ -190,6 +190,25 @@ export default function SettingsScreen({ navigation }) {
                     )}
                 </View>
 
+                <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionHeaderTitle}>DIAGNÓSTICO</Text>
+                    <View style={styles.menuGroup}>
+                        <View style={styles.diagnosticInfo}>
+                            <Text style={styles.menuTitle}>Versión {Constants.expoConfig?.version || 'No disponible'}</Text>
+                            <Text style={styles.menuSubtitle}>
+                                Entorno: {typeof __DEV__ !== 'undefined' && __DEV__ ? 'Desarrollo' : 'Build'}
+                            </Text>
+                        </View>
+                        <Text style={styles.hint}>El registro oculta los datos sensibles.</Text>
+                        <PrimaryButton
+                            title="Ver registro de eventos"
+                            icon="activity"
+                            onPress={() => navigation.navigate('Diagnostics')}
+                            style={styles.diagnosticButton}
+                        />
+                    </View>
+                </View>
+
             </ScrollView>
         </Screen>
     );
@@ -261,5 +280,12 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: colors.text60,
         marginTop: 1,
+    },
+    diagnosticInfo: {
+        paddingTop: 14,
+    },
+    diagnosticButton: {
+        marginTop: 12,
+        marginBottom: 14,
     },
 });

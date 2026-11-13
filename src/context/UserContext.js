@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useRef, useState
 import { toPlanMeal } from '../utils/plan';
 import { File } from 'expo-file-system';
 import * as notificationService from '../services/notificationService';
+import { logger, maskEmail } from '../utils/logger';
 import {
     DEFAULT_USER_DATA,
     MAX_HISTORY,
@@ -57,6 +58,7 @@ export function UserProvider({ children }) {
                 setUserName(session.name);
                 setUserEmail(session.email);
                 applyUserData(data);
+                logger.info('app', `Sesión recuperada para ${maskEmail(session.email)}.`);
                 void notificationService.rescheduleAll(session.email, data.plan, data.history, data.settings);
             }
             if (!cancelled) setIsHydrated(true);
@@ -99,6 +101,7 @@ export function UserProvider({ children }) {
             setUserName(name);
             setUserEmail(cleanEmail);
             applyUserData(data);
+            logger.info('app', `Sesión iniciada para ${maskEmail(cleanEmail)}.`);
             void notificationService.rescheduleAll(cleanEmail, data.plan, data.history, data.settings);
         },
         [applyUserData, userEmail]
@@ -107,6 +110,7 @@ export function UserProvider({ children }) {
     // Cierra sesión. Los datos siguen guardados en el celular para cuando vuelvas a entrar.
     const signOut = useCallback(() => {
         authChanged.current = true;
+        logger.info('app', `Sesión cerrada para ${maskEmail(userEmail)}.`);
         void notificationService.cancelAllReminders(userEmail);
         setUserName('');
         setUserEmail('');
@@ -160,7 +164,7 @@ export function UserProvider({ children }) {
             try {
                 new File(entry.photoUri).delete();
             } catch (error) {
-                console.warn('[camara] No se pudo borrar el archivo de la foto:', error);
+                logger.warn('camara', 'No se pudo borrar el archivo de la foto.', error);
             }
         }
         setHistory((prev) => prev.filter((h) => h.id !== id));

@@ -4,7 +4,8 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import RecipeImage from './RecipeImage';
 
-export default function RecipeCard({
+function RecipeCard({
+    recipe,
     title,
     image,
     icon,
@@ -28,7 +29,7 @@ export default function RecipeCard({
                 {/* Botón Favorito */}
                 <TouchableOpacity
                     style={styles.heartButton}
-                    onPress={onToggleFavorite}
+                    onPress={() => onToggleFavorite?.(recipe)}
                     accessibilityLabel={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
                 >
                     <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={18} color={colors.danger} />
@@ -50,7 +51,7 @@ export default function RecipeCard({
 
                 <View style={styles.cardFooter}>
                     <Text style={styles.categoryLabel}>{category}</Text>
-                    <TouchableOpacity style={styles.viewButton} onPress={onViewRecipe} accessibilityLabel={`Ver receta ${title}`}>
+                    <TouchableOpacity style={styles.viewButton} onPress={() => onViewRecipe?.(recipe)} accessibilityLabel={`Ver receta ${title}`}>
                         <Text style={styles.viewButtonText}>Ver Receta</Text>
                     </TouchableOpacity>
                 </View>
@@ -58,6 +59,8 @@ export default function RecipeCard({
         </View>
     );
 }
+
+export default React.memo(RecipeCard);
 
 const styles = StyleSheet.create({
     recipeCard: {

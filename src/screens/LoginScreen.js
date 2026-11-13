@@ -1,9 +1,10 @@
 import React, { useContext, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { UserContext } from '../context/UserContext';
-import { validateEmail, nameFromEmail } from '../utils/validators';
+import { validateEmail, validatePassword, nameFromEmail } from '../utils/validators';
 import { colors } from '../theme/colors';
 import { Screen, BrandLogo, FormInput, PrimaryButton } from '../components';
+import { logger } from '../utils/logger';
 
 export default function LoginScreen({ navigation }) {
     const { signIn } = useContext(UserContext);
@@ -15,18 +16,27 @@ export default function LoginScreen({ navigation }) {
     const handleLogin = async () => {
         const currentErrors = {
             email: validateEmail(email),
-            password: password.trim() ? '' : 'La contraseña es obligatoria',
+            password: validatePassword(password),
         };
         setErrors(currentErrors);
 
-        if (currentErrors.email || currentErrors.password) return;
+        if (currentErrors.email || currentErrors.password) {
+            logger.warn('app', 'Inicio de sesión rechazado por campos vacíos o inválidos.');
+            return;
+        }
 
         setSubmitting(true);
-        // Guarda la sesión y recupera los favoritos y preferencias de este correo (si ya usó la app)
-        await signIn({ name: nameFromEmail(email), email });
-
-        // replace: el usuario no puede volver al login con el botón "atrás".
-        navigation.replace('MainTabs');
+        try {
+            // Guarda la sesión y recupera los favoritos y preferencias de este correo (si ya usó la app)
+            await signIn({ name: nameFromEmail(email), email: email.trim() });
+            // replace: el usuario no puede volver al login con el botón "atrás".
+            navigation.replace('MainTabs');
+        } catch (error) {
+            logger.error('app', 'No se pudo iniciar la sesión.', error);
+            setErrors((prev) => ({ ...prev, password: 'No se pudo iniciar sesión. Inténtalo de nuevo.' }));
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (

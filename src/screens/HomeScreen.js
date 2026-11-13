@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import {
     StyleSheet,
     Text,
@@ -35,6 +35,9 @@ export default function HomeScreen({ navigation }) {
     const preferencesText = describePreferences(dietaryPreference, allergies);
     const hasAllergies = allergies.some((a) => a !== 'Ninguna');
     const isSearching = debouncedQuery.length > 0;
+    const handleOpenRecipe = useCallback((recipe) => {
+        navigation.navigate('RecipeDetail', { recipeId: recipe.id, recipe });
+    }, [navigation]);
 
     const handleSelectCategory = (value) => {
         setQuery('');
@@ -66,6 +69,7 @@ export default function HomeScreen({ navigation }) {
         return visibleRecipes.map((recipe) => (
             <RecipeCard
                 key={recipe.id}
+                recipe={recipe}
                 title={recipe.title}
                 image={recipe.image}
                 icon={recipe.icon}
@@ -73,8 +77,8 @@ export default function HomeScreen({ navigation }) {
                 category={categoryLabel(recipe.category)}
                 meta={recipe.ingredients.length > 0 ? `${recipe.ingredients.length} ingredientes` : null}
                 isFavorite={isFavorite(recipe.id)}
-                onToggleFavorite={() => toggleFavorite(recipe)}
-                onViewRecipe={() => navigation.navigate('RecipeDetail', { recipeId: recipe.id, recipe })}
+                onToggleFavorite={toggleFavorite}
+                onViewRecipe={handleOpenRecipe}
             />
         ));
     };

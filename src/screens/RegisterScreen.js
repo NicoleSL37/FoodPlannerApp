@@ -1,5 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import {
   validateName,
@@ -9,12 +10,14 @@ import {
 } from '../utils/validators';
 import { colors } from '../theme/colors';
 import { Screen, BrandLogo, FormInput, PrimaryButton } from '../components';
+import { logger } from '../utils/logger';
 
 export default function RegisterScreen({ navigation }) {
   const { signIn } = useContext(UserContext);
 
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [submitting, setSubmitting] = useState(false);
 
   // Actualiza un campo y borra su error mientras el usuario escribe
   const setField = (field) => (value) => {
@@ -31,12 +34,23 @@ export default function RegisterScreen({ navigation }) {
     };
     setErrors(currentErrors);
 
-    if (Object.values(currentErrors).some(Boolean)) return;
+    if (Object.values(currentErrors).some(Boolean)) {
+      logger.warn('app', 'Registro rechazado por campos vacíos o inválidos.');
+      return;
+    }
 
-    // Cuenta nueva: guarda la sesión y empieza con preferencias en blanco
-    await signIn({ name: form.name.trim(), email: form.email, isNewAccount: true });
-    // Pasa al cuestionario de onboarding (dieta -> alergias)
-    navigation.navigate('DietaryPreferences', { mode: 'onboarding' });
+    setSubmitting(true);
+    try {
+      // Cuenta nueva: guarda la sesión y empieza con preferencias en blanco
+      await signIn({ name: form.name.trim(), email: form.email.trim(), isNewAccount: true });
+      // Pasa al cuestionario de onboarding (dieta -> alergias)
+      navigation.navigate('DietaryPreferences', { mode: 'onboarding' });
+    } catch (error) {
+      logger.error('app', 'No se pudo crear la cuenta local.', error);
+      Alert.alert('No se pudo crear la cuenta', 'Revisa los datos e inténtalo de nuevo.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -87,7 +101,7 @@ export default function RegisterScreen({ navigation }) {
               error={errors.confirmPassword}
             />
 
-            <PrimaryButton title="Crear Cuenta" icon="arrow-right" onPress={handleRegister} style={styles.submit} />
+            <PrimaryButton title="Crear Cuenta" icon="arrow-right" onPress={handleRegister} disabled={submitting} style={styles.submit} />
           </View>
 
           <TouchableOpacity style={styles.loginLinkButton} onPress={() => navigation.goBack()}>

@@ -16,6 +16,8 @@ import { categoryLabel } from '../data/categories';
 import { MEAL_SLOTS } from '../data/mealSlots';
 import { buildDays, countPlanned, dateKey } from '../utils/plan';
 import usePermission from '../hooks/usePermission';
+import { getMealReminderDate } from '../services/notificationService';
+import { logger } from '../utils/logger';
 
 export default function PlanScreen({ navigation, route }) {
     // El plan vive en UserContext y se guarda en AsyncStorage (por usuario)
@@ -70,8 +72,39 @@ export default function PlanScreen({ navigation, route }) {
         : '';
 
     const handlePick = (recipe) => {
-        setMeal(selectedKey, pickerSlot, recipe);
-        setPickerSlot(null);
+        if (!pickerSlot || !recipe || typeof recipe.id !== 'string' || !recipe.id.trim()) {
+            logger.warn('plan', 'Se rechazó una receta inválida al intentar planificarla.');
+            Alert.alert('Receta no válida', 'No se puede planificar esta receta porque no tiene un identificador válido.');
+            return;
+        }
+        const saveMeal = () => {
+            setMeal(selectedKey, pickerSlot, recipe);
+            setPickerSlot(null);
+            try {
+                if (getMealReminderDate(selectedKey, pickerSlot).getTime() <= Date.now()) {
+                    logger.info('plan', `Horario pasado guardado sin recordatorio: ${selectedKey}|${pickerSlot}.`);
+                    Alert.alert('Comida guardada', 'Este horario ya pasó, no se programará recordatorio.');
+                }
+            } catch (error) {
+                logger.warn('plan', 'No se pudo validar la hora elegida para el recordatorio.', error);
+            }
+        };
+        const currentMeal = plan[selectedKey]?.[pickerSlot];
+        if (currentMeal) {
+            const sameRecipe = currentMeal.id === recipe.id;
+            Alert.alert(
+                sameRecipe ? 'Comida ya planificada' : 'Reemplazar comida',
+                sameRecipe
+                    ? `"${recipe.title}" ya está asignada a ese horario. ¿Quieres confirmar esta planificación?`
+                    : `Ya tienes "${currentMeal.title}" en ese horario. ¿Quieres reemplazarla por "${recipe.title}"?`,
+                [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: sameRecipe ? 'Confirmar' : 'Reemplazar', onPress: saveMeal },
+                ]
+            );
+            return;
+        }
+        saveMeal();
     };
 
     const handleRemove = (slot, meal) => {

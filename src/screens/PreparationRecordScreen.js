@@ -17,6 +17,7 @@ import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
 import { Screen, ScreenHeader } from '../components';
 import usePermission from '../hooks/usePermission';
+import { logger } from '../utils/logger';
 
 export default function PreparationRecordScreen({ route, navigation }) {
   const { addHistory } = useContext(UserContext);
@@ -35,6 +36,7 @@ export default function PreparationRecordScreen({ route, navigation }) {
   const cameraRef = useRef(null);
   const photoUriRef = useRef(null);
   const cameraPermissionRequested = useRef(false);
+  const saveInProgress = useRef(false);
 
   useEffect(() => {
     if (permissionLoading || permissionStatus !== 'undetermined' || cameraPermissionRequested.current) return;
@@ -55,7 +57,7 @@ export default function PreparationRecordScreen({ route, navigation }) {
       setCapturedImageReady(false);
       setCapturedUri(photo.uri);
     } catch (error) {
-      console.warn('[camara] No se pudo capturar la foto:', error);
+      logger.warn('camara', 'No se pudo capturar la foto.', error);
       Alert.alert('No se pudo tomar la foto', 'Inténtalo de nuevo o guarda el registro sin foto.');
     } finally {
       setBusy(false);
@@ -74,11 +76,12 @@ export default function PreparationRecordScreen({ route, navigation }) {
       const previousPhotoUri = photoUriRef.current;
       photoUriRef.current = destination.uri;
       if (previousPhotoUri) {
-        try { new File(previousPhotoUri).delete(); } catch (error) { console.warn('[camara] No se pudo reemplazar la foto anterior:', error); }
+        try { new File(previousPhotoUri).delete(); } catch (error) { logger.warn('camara', 'No se pudo reemplazar la foto anterior.', error); }
       }
+      logger.info('camara', 'Foto guardada en el almacenamiento privado.');
       setCapturedUri(null);
     } catch (error) {
-      console.warn('[camara] No se pudo guardar la foto:', error);
+      logger.warn('camara', 'No se pudo guardar la foto.', error);
       Alert.alert('No se pudo guardar la foto', 'La foto no quedó guardada. Inténtalo otra vez o repite la captura.');
     } finally {
       setBusy(false);
@@ -87,24 +90,55 @@ export default function PreparationRecordScreen({ route, navigation }) {
 
   // Guarda la preparación en el historial (AsyncStorage), con la URI persistente si se eligió una foto.
   const handleSaveToHistory = () => {
-    if (saved || busy) return;
+    if (saved || busy || saveInProgress.current) return;
+    saveInProgress.current = true;
+    setBusy(true);
+
+    const saveEntry = (selectedPhotoUri) => {
+      try {
+        addHistory({
+          recipeId: recipe?.id || '',
+          title: recipeTitle,
+          category: recipe?.category || '',
+          image: recipe?.image || null,
+          source,
+          planKey,
+          slotId,
+          hasPhoto: Boolean(selectedPhotoUri),
+          photoUri: selectedPhotoUri,
+        });
+        setSaved(true);
+        logger.info('historial', selectedPhotoUri ? 'Preparación guardada con foto.' : 'Preparación guardada sin foto.');
+        Alert.alert('Historial', '¡Registrado en tu historial!', [
+          { text: 'Seguir aquí', style: 'cancel' },
+          { text: 'Ver historial', onPress: () => navigation.replace('History') },
+        ]);
+      } catch (error) {
+        logger.error('historial', 'No se pudo guardar la preparación en el historial.', error);
+        Alert.alert('No se pudo guardar', 'Inténtalo de nuevo en unos momentos.');
+      } finally {
+        saveInProgress.current = false;
+        setBusy(false);
+      }
+    };
+
     const selectedPhotoUri = photoUriRef.current;
-    addHistory({
-      recipeId: recipe?.id || '',
-      title: recipeTitle,
-      category: recipe?.category || '',
-      image: recipe?.image || null,
-      source,
-      planKey,
-      slotId,
-      hasPhoto: Boolean(selectedPhotoUri),
-      photoUri: selectedPhotoUri,
-    });
-    setSaved(true);
-    Alert.alert('Historial', '¡Registrado en tu historial!', [
-      { text: 'Seguir aquí', style: 'cancel' },
-      { text: 'Ver historial', onPress: () => navigation.replace('History') },
-    ]);
+    if (selectedPhotoUri) {
+      try {
+        if (!new File(selectedPhotoUri).exists) throw new Error('El archivo de la foto ya no existe.');
+      } catch (error) {
+        logger.warn('camara', 'La foto elegida ya no está disponible; se continuará sin foto.', error);
+        photoUriRef.current = null;
+        Alert.alert(
+          'Foto no disponible',
+          'La foto ya no existe en el dispositivo. Puedes guardar el registro sin foto.',
+          [{ text: 'Guardar sin foto', onPress: () => saveEntry(null) }],
+          { cancelable: false }
+        );
+        return;
+      }
+    }
+    saveEntry(selectedPhotoUri);
   };
 
   return (
@@ -137,12 +171,12 @@ export default function PreparationRecordScreen({ route, navigation }) {
             <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing}
               flash={facing === 'back' && flashEnabled ? 'on' : 'off'}
               onCameraReady={() => setCameraReady(true)}
-              onMountError={(event) => { console.warn('[camara] No se pudo iniciar la cámara:', event.message); Alert.alert('Cámara no disponible', 'Cierra otras aplicaciones que estén usando la cámara e inténtalo de nuevo.'); }} />
+              onMountError={(event) => { logger.error('camara', 'No se pudo iniciar la cámara.', event); Alert.alert('Cámara no disponible', 'Cierra otras aplicaciones que estén usando la cámara e inténtalo de nuevo.'); }} />
           )}
           {capturedUri ? <Image source={{ uri: capturedUri }} style={StyleSheet.absoluteFill} resizeMode="cover"
             onLoad={() => setCapturedImageReady(true)}
             onError={(error) => {
-              console.warn('[camara] No se pudo mostrar la foto capturada:', error.nativeEvent?.error || error);
+              logger.warn('camara', 'No se pudo mostrar la foto capturada.', error.nativeEvent?.error || error);
               setCapturedImageReady(false);
               setCapturedUri(null);
               Alert.alert('No se pudo mostrar la foto', 'Intenta tomarla de nuevo o guarda el registro sin foto.');

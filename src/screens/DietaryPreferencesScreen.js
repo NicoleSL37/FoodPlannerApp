@@ -1,7 +1,9 @@
 import React, { useState, useContext } from 'react';
+import { Alert } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { Chip, OnboardingStep } from '../components';
 import { DIET_OPTIONS } from '../data/preferences';
+import { logger } from '../utils/logger';
 
 
 export default function DietaryPreferencesScreen({ route, navigation }) {
@@ -11,6 +13,11 @@ export default function DietaryPreferencesScreen({ route, navigation }) {
   const [selected, setSelected] = useState(dietaryPreference);
 
   const handleNext = () => {
+    if (!DIET_OPTIONS.includes(selected)) {
+      logger.warn('app', 'Preferencia de dieta inválida; no se guardó el cambio.');
+      Alert.alert('Selección no válida', 'Elige una opción de dieta para continuar.');
+      return;
+    }
     setDietaryPreference(selected);
 
     if (isEdit) {
