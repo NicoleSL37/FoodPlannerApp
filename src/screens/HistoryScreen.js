@@ -13,7 +13,7 @@ import { colors } from '../theme/colors';
 import { categoryLabel } from '../data/categories';
 import { MEAL_SLOTS } from '../data/mealSlots';
 import { formatTimestamp } from '../utils/plan';
-import { Screen, ScreenHeader } from '../components';
+import { RecipeImage, Screen, ScreenHeader } from '../components';
 
 export default function HistoryScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Plan Semanal');
@@ -85,12 +85,11 @@ export default function HistoryScreen({ navigation }) {
         {filteredHistory.length > 0 ? (
           filteredHistory.map((item) => (
             <View key={item.id} style={styles.historyCard}>
-              {/* Fondo simulación foto */}
               <View style={styles.cardPhotoPlaceholder}>
-                <View style={styles.cameraIconBox}>
-                  <Feather name="camera" size={24} color="rgba(255,255,255,0.4)" />
-                </View>
-                <Text style={styles.photoText}>{item.hasPhoto ? 'Foto registrada' : 'Sin foto'}</Text>
+                {item.photoUri ? <RecipeImage uri={item.photoUri} icon={item.image ? 'image' : 'coffee'} style={StyleSheet.absoluteFill} /> : <View style={styles.noPhoto}>
+                  <View style={styles.cameraIconBox}><Feather name="camera" size={24} color={colors.text50} /></View>
+                  <Text style={styles.photoText}>Sin foto</Text>
+                </View>}
                 
                 <View style={styles.completedTag}>
                   <View style={styles.greenDot} />
@@ -238,6 +237,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
+  noPhoto: { alignItems: 'center', justifyContent: 'center' },
   cameraIconBox: {
     width: 64,
     height: 64,
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: colors.white,
     padding: 16,
     borderTopWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',

@@ -100,6 +100,7 @@ const cleanHistory = (list) => {
             planKey: typeof h.planKey === 'string' && DATE_KEY.test(h.planKey) ? h.planKey : null,
             slotId: MEAL_SLOTS.some((slot) => slot.id === h.slotId) ? h.slotId : null,
             hasPhoto: Boolean(h.hasPhoto),
+            photoUri: typeof h.photoUri === 'string' ? h.photoUri : null,
         }))
         .slice(0, MAX_HISTORY);
 };

@@ -23,7 +23,7 @@ Proyecto del curso *Desarrollo de Aplicaciones Móviles* (proyecto 5 de la guía
 - **Vistas recientemente:** las últimas recetas que abriste aparecen en Inicio para volver a ellas rápido.
 - **Todo se guarda en el celular (AsyncStorage):** la sesión, la dieta y alergias, los favoritos, las recetas vistas, el plan semanal, el historial de preparaciones y los ajustes. Al cerrar y abrir la app sigues dentro y no pierdes nada.
 - **Plan semanal (persistente):** calendario de 19 días con 4 comidas por día (desayuno, almuerzo, snack, cena). Se agregan recetas desde el **detalle** ("Añadir al Plan Semanal": eliges día y comida) o desde el **Plan** (eliges entre tus favoritas y vistas). Se pueden abrir y quitar; los días con comidas se marcan con un punto y se muestra cuántas comidas del día están planificadas. Se guarda en AsyncStorage por usuario.
-- **Registro de preparación e historial (persistentes):** al completar una comida del Plan (o desde el botón de cámara de una receta) se abre el registro y "Guardar en mi Historial" guarda la preparación con fecha y hora. El **Historial** separa *Plan Semanal* y *Cocina Libre*, muestra estado vacío y permite borrar registros; en el Plan, la comida completada queda marcada como "Hecho". La cámara sigue simulada hasta el APF3.
+- **Registro de preparación e historial (persistentes):** al completar una comida del Plan (o desde el botón de cámara de una receta) se abre el registro y "Guardar en mi Historial" guarda la preparación con fecha, hora y foto opcional capturada con la cámara del dispositivo. Las fotos quedan en el almacenamiento privado de la app y se eliminan al borrar el registro. El **Historial** separa *Plan Semanal* y *Cocina Libre*, muestra estado vacío y permite borrar registros; en el Plan, la comida completada queda marcada como "Hecho".
 - **Perfil y ajustes (persistentes):** cierre de sesión que limpia el estado del usuario. En Configuración, los interruptores de notificaciones y recordatorios de comida se guardan por usuario; si apagas las notificaciones, los recordatorios quedan desactivados. Los avisos reales llegan en el APF3.
 
 ## 🌐 API: TheMealDB
@@ -166,7 +166,7 @@ Escanea el QR con **Expo Go** (Android/iOS) o presiona `a` para abrir el emulado
 7. Abre varias recetas y revisa **Vistas recientemente** en Inicio.
 8. **Cierra la app por completo y ábrela de nuevo:** debes seguir con la sesión iniciada y conservar favoritos, preferencias y recetas vistas.
 9. Abre una receta, pulsa **Añadir al Plan Semanal**, elige día y comida y entra a **Plan**: la verás en ese día. Cierra la app por completo y ábrela: el plan sigue ahí. Prueba también **Añadir DESAYUNO** desde el Plan y el botón de quitar.
-10. En **Plan**, pulsa **Completar** en una comida, toca el obturador y **Guardar en mi Historial**: la comida queda como "Hecho" y aparece en **Perfil → Historial** (pestaña Plan Semanal). Repite desde el botón de cámara de una receta para ver la pestaña Cocina Libre, y cierra y abre la app para comprobar que sigue ahí.
+10. En **Plan**, pulsa **Completar** en una comida y acepta el permiso de cámara al entrar al registro. Toma una foto, pulsa **Usar esta foto** y **Guardar en mi Historial**: la comida queda como "Hecho" y aparece en **Perfil → Historial** (pestaña Plan Semanal). Comprueba que la foto persiste al cerrar y abrir la app y que al borrar el registro también se borra su foto. Repite desde el botón de cámara de una receta para ver Cocina Libre. Si deniegas el permiso, prueba **Volver a intentar**; si lo bloqueas, usa **Abrir ajustes**. También puedes guardar sin foto.
 11. Abre una receta y pulsa **Traducir al español**: verás "Traduciendo..." y luego título, ingredientes y pasos en español. Pulsa **Ver original** para volver. Cierra la app, abre la misma receta y pulsa **Ver en español**: aparece al instante (viene de la caché). Con el internet apagado, prueba traducir otra receta: verás el mensaje de error y **Reintentar traducción**.
 12. En **Perfil → Notificaciones**, apaga un interruptor, cierra la app por completo y ábrela: el ajuste sigue como lo dejaste.
 13. En **Perfil**, cierra sesión e inicia con otro correo (verás que no tiene tus favoritos); vuelve a entrar con el primero y los recuperas.
@@ -200,7 +200,7 @@ Capturas del avance 2 (guardadas en `docs/capturas/`). Cada una demuestra un cri
 - [x] Traducción al español de ingredientes y pasos (botón en el detalle, con caché y glosario culinario)
 
 **APF3**
-- [ ] Cámara real para registrar el platillo, con manejo de permisos
+- [x] Cámara real para registrar el platillo, con manejo de permisos
 - [ ] Notificaciones locales de comidas planificadas
 - [ ] Manejo de errores y logging básico
 

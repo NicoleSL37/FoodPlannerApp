@@ -1,4 +1,7 @@
-import React, { useContext, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Directory, File, Paths } from 'expo-file-system';
+import { useIsFocused } from '@react-navigation/native';
 import {
   StyleSheet,
   Text,
@@ -6,6 +9,9 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Image,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { UserContext } from '../context/UserContext';
@@ -14,24 +20,87 @@ import { Screen, ScreenHeader } from '../components';
 
 export default function PreparationRecordScreen({ route, navigation }) {
   const { addHistory } = useContext(UserContext);
+  const isFocused = useIsFocused();
   // Llega desde el Plan (source 'plan', con día y comida) o desde el detalle de una receta (source 'free')
   const { recipe, source = 'free', planKey = null, slotId = null } = route.params || {};
   const recipeTitle = recipe?.title || route.params?.recipeTitle || 'Tu platillo';
-  const [photoCaptured, setPhotoCaptured] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [permissionChecked, setPermissionChecked] = useState(false);
+  const [facing, setFacing] = useState('back');
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [capturedUri, setCapturedUri] = useState(null);
+  const [capturedImageReady, setCapturedImageReady] = useState(false);
+  const [photoUri, setPhotoUri] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const cameraRef = useRef(null);
+  const photoUriRef = useRef(null);
+
+  useEffect(() => {
+    if (!permission || permissionChecked) return;
+    setPermissionChecked(true);
+    if (permission.granted || permission.canAskAgain === false) return;
+    requestPermission().catch((error) => console.warn('[camara] No se pudo solicitar el permiso:', error));
+  }, [permission, permissionChecked, requestPermission]);
+
+  const handleRetryPermission = useCallback(async () => {
+    try {
+      const result = await requestPermission();
+      if (!result.granted) console.warn('[camara] Permiso de cámara denegado.');
+    } catch (error) {
+      console.warn('[camara] No se pudo volver a solicitar el permiso:', error);
+    }
+  }, [requestPermission]);
 
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const handleCapture = () => {
-    setPhotoCaptured(true);
-    Alert.alert('Foto', '¡Foto de preparación capturada con éxito!');
+  const handleCapture = async () => {
+    if (!cameraRef.current || !cameraReady || busy) return;
+    setBusy(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync();
+      if (!photo?.uri) throw new Error('La cámara no devolvió una imagen.');
+      setCapturedImageReady(false);
+      setCapturedUri(photo.uri);
+    } catch (error) {
+      console.warn('[camara] No se pudo capturar la foto:', error);
+      Alert.alert('No se pudo tomar la foto', 'Inténtalo de nuevo o guarda el registro sin foto.');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // Guarda la preparación en el historial (AsyncStorage). La foto es simulada hasta el APF3, por eso solo se guarda si hubo captura.
+  const handleUsePhoto = async () => {
+    if (!capturedUri || busy) return;
+    setBusy(true);
+    try {
+      const directory = new Directory(Paths.document, 'fotos-preparaciones');
+      directory.create({ idempotent: true, intermediates: true });
+      const destination = new File(directory, `preparacion-${Date.now()}.jpg`);
+      await new File(capturedUri).copy(destination);
+      if (!destination.exists) throw new Error('La copia terminó, pero el archivo no está disponible.');
+      const previousPhotoUri = photoUriRef.current;
+      photoUriRef.current = destination.uri;
+      setPhotoUri(destination.uri);
+      if (previousPhotoUri) {
+        try { new File(previousPhotoUri).delete(); } catch (error) { console.warn('[camara] No se pudo reemplazar la foto anterior:', error); }
+      }
+      setCapturedUri(null);
+    } catch (error) {
+      console.warn('[camara] No se pudo guardar la foto:', error);
+      Alert.alert('No se pudo guardar la foto', 'La foto no quedó guardada. Inténtalo otra vez o repite la captura.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Guarda la preparación en el historial (AsyncStorage), con la URI persistente si se eligió una foto.
   const handleSaveToHistory = () => {
-    if (saved) return;
+    if (saved || busy) return;
+    const selectedPhotoUri = photoUriRef.current;
     addHistory({
       recipeId: recipe?.id || '',
       title: recipeTitle,
@@ -40,7 +109,8 @@ export default function PreparationRecordScreen({ route, navigation }) {
       source,
       planKey,
       slotId,
-      hasPhoto: photoCaptured,
+      hasPhoto: Boolean(selectedPhotoUri),
+      photoUri: selectedPhotoUri,
     });
     setSaved(true);
     Alert.alert('Historial', '¡Registrado en tu historial!', [
@@ -73,28 +143,60 @@ export default function PreparationRecordScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Visor de Cámara (Mockup) */}
+        {/* Cámara real y estados de permiso/captura */}
         <View style={styles.cameraViewfinder}>
+          {isFocused && permission?.granted && !capturedUri && (
+            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing}
+              flash={facing === 'back' && flashEnabled ? 'on' : 'off'}
+              onCameraReady={() => setCameraReady(true)}
+              onMountError={(event) => { console.warn('[camara] No se pudo iniciar la cámara:', event.message); Alert.alert('Cámara no disponible', 'Cierra otras aplicaciones que estén usando la cámara e inténtalo de nuevo.'); }} />
+          )}
+          {capturedUri ? <Image source={{ uri: capturedUri }} style={StyleSheet.absoluteFill} resizeMode="cover"
+            onLoad={() => setCapturedImageReady(true)}
+            onError={(error) => {
+              console.warn('[camara] No se pudo mostrar la foto capturada:', error.nativeEvent?.error || error);
+              setCapturedImageReady(false);
+              setCapturedUri(null);
+              Alert.alert('No se pudo mostrar la foto', 'Intenta tomarla de nuevo o guarda el registro sin foto.');
+            }} /> : null}
+          {capturedUri && !capturedImageReady && (
+            <View style={styles.processingOverlay}>
+              <ActivityIndicator color={colors.white} />
+              <Text style={styles.processingText}>Procesando foto...</Text>
+            </View>
+          )}
+          {!permission?.granted && (
+            <View style={styles.permissionPanel}>
+              <Feather name="camera-off" size={34} color={colors.white} />
+              <Text style={styles.permissionText}>{permission?.canAskAgain === false
+                ? 'El permiso de cámara está desactivado. Actívalo en los ajustes del dispositivo.'
+                : 'Necesitamos permiso para usar la cámara. También puedes guardar el registro sin foto.'}</Text>
+              {permission?.canAskAgain !== false && <TouchableOpacity style={styles.permissionButton} onPress={handleRetryPermission}><Text style={styles.permissionButtonText}>Volver a intentar</Text></TouchableOpacity>}
+              <TouchableOpacity style={styles.permissionButton} onPress={() => Linking.openSettings().catch((error) => console.warn('[camara] No se pudieron abrir los ajustes:', error))}><Text style={styles.permissionButtonText}>Abrir ajustes</Text></TouchableOpacity>
+            </View>
+          )}
           {/* Indicador superior en vivo */}
           <View style={styles.cameraTopBar}>
             <View style={styles.liveBadge}>
               <View style={styles.pulsingDot} />
               <Text style={styles.liveText}>En vivo</Text>
             </View>
-            <View style={styles.flashButton}>
-              <Feather name="zap" size={13} color="rgba(255,255,255,0.8)" />
-            </View>
+            {isFocused && permission?.granted && !capturedUri && facing === 'back' && <TouchableOpacity style={[styles.flashButton, flashEnabled && styles.flashButtonActive]}
+              onPress={() => setFlashEnabled((current) => !current)}
+              accessibilityRole="button" accessibilityLabel={flashEnabled ? 'Apagar flash' : 'Encender flash'}>
+              <Feather name="zap" size={13} color={flashEnabled ? colors.primary : colors.white} />
+            </TouchableOpacity>}
           </View>
 
           {/* Ícono central */}
-          <View style={styles.cameraCenterContent}>
+          {(!isFocused || !permission?.granted) && !capturedUri && <View pointerEvents="none" style={styles.cameraCenterContent}>
             <View style={styles.cameraIconCircle}>
               <Feather name="camera" size={48} color="rgba(255,255,255,0.35)" />
             </View>
             <Text style={styles.cameraGuideText}>
-              {photoCaptured ? '¡Foto lista para guardar!' : 'Apunta hacia tu platillo terminado'}
+              {photoUri ? 'Foto guardada para este registro' : 'Apunta hacia tu platillo terminado'}
             </Text>
-          </View>
+          </View>}
 
           {/* Marcos guía en esquinas */}
           <View style={[styles.guideCorner, styles.cornerTL]} />
@@ -104,28 +206,26 @@ export default function PreparationRecordScreen({ route, navigation }) {
         </View>
 
         {/* Controles de Cámara */}
-        <View style={styles.cameraControlsRow}>
-          <TouchableOpacity style={styles.controlCircularBtn}>
-            <Feather name="image" size={20} color={colors.text} />
-          </TouchableOpacity>
+        {isFocused && permission?.granted && capturedUri && capturedImageReady ? <View style={styles.photoActions}>
+          <TouchableOpacity style={styles.secondaryAction} onPress={() => { setCameraReady(false); setCapturedUri(null); }}><Text style={styles.secondaryActionText}>Repetir</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.usePhotoAction} onPress={handleUsePhoto} disabled={busy}><Text style={styles.usePhotoActionText}>{busy ? 'Guardando…' : 'Usar esta foto'}</Text></TouchableOpacity>
+        </View> : !capturedUri && isFocused && permission?.granted && <View style={styles.cameraControlsRow}>
 
           {/* Obturador */}
-          <TouchableOpacity style={styles.shutterButton} onPress={handleCapture}>
-            <View style={styles.shutterInnerRing}>
-              <View style={styles.shutterCore} />
-            </View>
+          <TouchableOpacity style={styles.shutterButton} onPress={handleCapture} disabled={!cameraReady || busy || Boolean(capturedUri)} accessibilityRole="button" accessibilityLabel="Tomar foto">
+            {busy ? <ActivityIndicator color={colors.primary} /> : <View style={styles.shutterInnerRing}><View style={styles.shutterCore} /></View>}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.controlCircularBtn}>
+          <TouchableOpacity style={styles.controlCircularBtn} onPress={() => { setCameraReady(false); setFacing((current) => current === 'back' ? 'front' : 'back'); }} accessibilityRole="button" accessibilityLabel="Cambiar cámara">
             <Feather name="refresh-cw" size={19} color={colors.text} />
           </TouchableOpacity>
-        </View>
+        </View>}
 
       </ScrollView>
 
       {/* Botón Guardar Anclado Abajo */}
       <View style={styles.floatingFooter}>
-        <TouchableOpacity style={[styles.saveHistoryButton, saved && { opacity: 0.5 }]} onPress={handleSaveToHistory} disabled={saved}>
+        <TouchableOpacity style={[styles.saveHistoryButton, (saved || busy) && { opacity: 0.5 }]} onPress={handleSaveToHistory} disabled={saved || busy}>
           <Feather name="save" size={18} color={colors.text} style={{ marginRight: 8 }} />
           <Text style={styles.saveHistoryText}>{saved ? 'Guardado en tu Historial' : 'Guardar en mi Historial'}</Text>
         </TouchableOpacity>
@@ -245,6 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  flashButtonActive: { backgroundColor: colors.white },
   cameraCenterContent: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -339,6 +440,17 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 40,
   },
+  permissionPanel: { ...StyleSheet.absoluteFillObject, zIndex: 20, backgroundColor: colors.dark, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+  processingOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 15, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: colors.dark },
+  processingText: { color: colors.white, fontSize: 14, fontWeight: '600' },
+  permissionText: { color: colors.white, textAlign: 'center', fontSize: 14, lineHeight: 20 },
+  permissionButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, backgroundColor: colors.primary },
+  permissionButtonText: { color: colors.white, fontWeight: 'bold' },
+  photoActions: { width: '100%', flexDirection: 'row', gap: 12, marginTop: 20 },
+  secondaryAction: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.border },
+  secondaryActionText: { color: colors.text, fontWeight: 'bold' },
+  usePhotoAction: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  usePhotoActionText: { color: colors.white, fontWeight: 'bold' },
   saveHistoryButton: {
     width: '100%',
     height: 52,

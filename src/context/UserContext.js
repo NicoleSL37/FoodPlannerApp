@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toPlanMeal } from '../utils/plan';
+import { File } from 'expo-file-system';
 import {
     DEFAULT_USER_DATA,
     MAX_HISTORY,
@@ -129,12 +130,27 @@ export function UserProvider({ children }) {
     // Registra una preparación en el historial (queda primera, con fecha y hora actuales)
     const addHistory = useCallback((entry) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        setHistory((prev) => [{ id, createdAt: new Date().toISOString(), ...entry }, ...prev].slice(0, MAX_HISTORY));
+        const photoUri = typeof entry.photoUri === 'string' ? entry.photoUri : null;
+        setHistory((prev) => [{
+            id,
+            createdAt: new Date().toISOString(),
+            ...entry,
+            photoUri,
+            hasPhoto: Boolean(entry.hasPhoto || photoUri),
+        }, ...prev].slice(0, MAX_HISTORY));
     }, []);
 
     const removeHistory = useCallback((id) => {
+        const entry = history.find((item) => item.id === id);
+        if (entry?.photoUri) {
+            try {
+                new File(entry.photoUri).delete();
+            } catch (error) {
+                console.warn('[camara] No se pudo borrar el archivo de la foto:', error);
+            }
+        }
         setHistory((prev) => prev.filter((h) => h.id !== id));
-    }, []);
+    }, [history]);
 
     // Cambia un ajuste (por ejemplo updateSetting('notifications', false)); se guarda solo
     const updateSetting = useCallback((key, value) => {

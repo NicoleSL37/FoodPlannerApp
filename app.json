@@ -8,7 +8,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.foodplanner.app"
+      "bundleIdentifier": "com.foodplanner.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "FoodPlanner necesita usar la cámara para guardar fotos de tus preparaciones."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,6 +24,18 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "FoodPlanner necesita usar la cámara para guardar fotos de tus preparaciones.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-file-system",
+      "expo-status-bar",
+      "expo-font"
+    ]
   }
 }
