@@ -17,6 +17,7 @@ import usePermission from '../hooks/usePermission';
 import { scheduleTestNotification } from '../services/notificationService';
 
 export default function SettingsScreen({ navigation }) {
+    
     // Los ajustes viven en UserContext y se guardan en AsyncStorage (por usuario)
     const { settings, userEmail, updateSetting } = useContext(UserContext);
     const { notifications, mealReminders } = settings;

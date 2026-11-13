@@ -10,7 +10,7 @@ Proyecto del curso *Desarrollo de Aplicaciones Móviles* (proyecto 5 de la guía
 | ------ | ------ | ------- |
 | **APF1** (semana 5) | ✅ Entregado y mejorado | Estructura, interfaz, props, estado, formulario validado y navegación |
 | **APF2** (semana 10) | ✅ Entregado | Hooks, consumo de API, estados loading/error/vacío y AsyncStorage |
-| APF3 (semana 15) | 🟡 Casi listo, falta documentación final | Cámara, permisos, notificaciones locales, validaciones, manejo de errores y registro de eventos |
+| **APF3** (semana 15) | ✅ Completado | Cámara y permisos, notificaciones locales, manejo de errores y logging, validaciones, integración global y documentación |
 
 ## ✨ Funcionalidades actuales
 
@@ -47,6 +47,251 @@ Los recordatorios son notificaciones locales para las comidas del Plan Semanal. 
 | Llega la hora de una comida | Se muestra «Hora de tu …» 15 minutos antes; al tocar el aviso se abre la receta o el Plan |
 
 Las notificaciones locales se prueban en un development build o APK, no en Expo Go.
+
+## Avance 3 y relación con la rúbrica
+
+| Criterio | Implementación existente | Archivos principales | Cómo probar |
+| -------- | ----------------------- | -------------------- | ----------- |
+| Funcionalidades nativas (25 %) | Cámara real, captura y persistencia privada de fotos en el historial | `PreparationRecordScreen.js`, `HistoryScreen.js`, `expo-camera`, `expo-file-system` | Registrar una preparación, usar la foto, reiniciar la app y revisar el historial |
+| Solicitud y gestión de permisos (15 %) | Solicitud contextual de cámara y notificaciones, estados normalizados y acceso a ajustes | `permissionsService.js`, `usePermission.js`, `PreparationRecordScreen.js`, `SettingsScreen.js`, `app.json` | Conceder, denegar y bloquear el permiso desde el teléfono |
+| Notificaciones y eventos relevantes (15 %) | Recordatorios locales del plan, notificación de prueba, cancelaciones y navegación al tocar | `notificationService.js`, `UserContext.js`, `AppNavigator.js`, `SettingsScreen.js` | Programar una comida futura, probar, tocar la notificación y retirar la comida |
+| Rendimiento, errores y logging (20 %) | Errores de red y almacenamiento controlados, ErrorBoundary, registro central y optimizaciones de listas | `logger.js`, `ErrorBoundary.js`, `DiagnosticsScreen.js`, `HistoryScreen.js`, `RecipeCard.js` | Desconectar internet, revisar Diagnóstico, filtros y recuperación de errores |
+| Integración global y documentación (25 %) | Flujo conectado entre recetas, plan, cámara, historial, ajustes y registro; guía técnica y evidencias | `App.js`, `AppNavigator.js`, `UserContext.js`, `README.md`, `docs/capturas/apf3/` | Seguir el flujo integrado y contrastar las capturas indicadas abajo |
+
+Las ponderaciones identifican los criterios de la rúbrica; no representan una medición automática del puntaje.
+
+## Descripción y propósito
+
+FoodPlanner ayuda a personas que organizan comidas semanales a descubrir recetas, considerar sus preferencias y alergias, guardar favoritas y registrar lo que preparan. Las pantallas cubren acceso y registro, preferencias iniciales, Inicio, detalle de receta, Favoritos, Plan, Registro de Preparación, Historial, Perfil y Configuración/Diagnóstico.
+
+### Estado de los avances
+
+| Avance | Estado | Entrega documentada |
+| ------ | ------ | ------------------- |
+| APF1 (semana 5) | ✅ Entregado y mejorado | Estructura, interfaz, componentes, estado, formularios y navegación |
+| APF2 (semana 10) | ✅ Entregado | Hooks, API de recetas y traducción, estados de carga/error/vacío, persistencia local, plan semanal e historial |
+| APF3 (semana 15) | ✅ Completado | Cámara y permisos, recordatorios locales, manejo de errores, logging, validaciones, integración y documentación |
+
+## Flujo integrado
+
+El flujo conecta la búsqueda y el detalle de recetas con la planificación y el registro de la comida. El recordatorio se envía si la comida aún no se completó, los ajustes están activos y el sistema concedió el permiso.
+
+```mermaid
+flowchart LR
+    A[Buscar receta] --> B[Ver detalle]
+    B --> C[Guardar en favoritos]
+    B --> D[Planificar comida]
+    D --> E[Recordatorio local 15 min antes]
+    D --> F[Preparar platillo]
+    F --> G[Capturar y guardar foto opcional]
+    G --> H[Historial]
+    E --> I[Tocar notificación]
+    I --> B
+```
+
+## Funcionalidad nativa y permisos
+
+La cámara usa `expo-camera` (`CameraView`) para la vista previa, obturador, cambio entre cámaras frontal y trasera y flash. La foto seleccionada se copia mediante `expo-file-system` a `Paths.document/fotos-preparaciones`; el historial persiste la URI y al borrar el registro intenta borrar el archivo. La cámara solo se solicita al entrar al Registro de Preparación. La prueba funcional descrita para captura y persistencia está marcada abajo; las capacidades de cámara/flash se describen según el código.
+
+| Permiso | Cuándo se solicita | Si se acepta | Si se rechaza | Si queda bloqueado |
+| ------- | ------------------ | ------------ | ------------- | ------------------ |
+| Cámara | Al entrar al Registro de Preparación | Muestra la vista previa y permite capturar; también se puede guardar sin foto | Se muestra el mensaje alternativo y la opción de volver a intentar | Ofrece abrir los ajustes del sistema; se puede guardar sin foto |
+| Notificaciones | Al activar «Notificaciones Push» en Configuración | Permite activar el ajuste y los recordatorios locales | El ajuste queda apagado y se muestra el aviso con opciones de reintento y ajustes | El aviso incluye «Abrir ajustes»; el permiso puede comprobarse de nuevo al volver a la app |
+
+Textos de configuración presentes en `app.json`:
+
+- Cámara, iOS y complemento de cámara: «FoodPlanner necesita acceder a la cámara para fotografiar el platillo preparado.»
+- Notificaciones: el complemento declara `enableRemoteNotifications: false`; `app.json` no define un texto de uso personalizado para notificaciones. La explicación al usuario está en la interfaz de Configuración.
+
+## Notificaciones locales
+
+La aplicación programa notificaciones **locales**, no envía notificaciones remotas. `REMINDER_MINUTES_BEFORE` vale 15. En Android se prepara el canal `recordatorios-comidas`, llamado «Recordatorios de comidas», con importancia alta. Los horarios locales de cada comida se definen en `src/data/mealSlots.js`.
+
+| Evento | Acción existente |
+| ------ | ---------------- |
+| Añadir o reemplazar comida | Programa o reemplaza el recordatorio si los dos ajustes están activos y el permiso está concedido |
+| Hora del recordatorio ya transcurrida | Omite la notificación y registra la omisión; la comida se conserva en el plan |
+| Quitar comida o registrarla como preparada | Cancela el recordatorio de esa comida |
+| Desactivar notificaciones o recordatorios | Cancela los recordatorios del usuario |
+| Iniciar o recuperar sesión | Sincroniza comidas futuras y omite las registradas en el historial |
+| Tocar notificación | Abre el detalle de la receta cuando hay `recipeId`; de lo contrario, abre el Plan |
+
+`SettingsScreen.js` incluye «Enviar notificación de prueba», que programa un aviso local para unos cinco segundos después. Se necesita development build o APK; Expo Go presenta limitaciones para notificaciones.
+
+## Arquitectura y estructura real
+
+```text
+src/
+├── components/       # Pantallas base, botones, formularios, tarjetas e ErrorBoundary
+├── context/          # UserContext: estado y acciones del usuario
+├── data/             # Comidas, categorías, áreas y preferencias
+├── hooks/             # Recetas, traducción, permisos y valor con demora
+├── navigation/        # AppNavigator, pestañas, rutas y navegación por notificación
+├── screens/           # Acceso, Inicio, Plan, detalle, historial, preparación, perfil y ajustes
+├── services/          # API de recetas, traducción, permisos y notificaciones
+├── storage/           # Persistencia JSON, datos de usuario y caché de traducción
+├── theme/             # Paleta de colores
+└── utils/              # Logger, validación, fechas del plan, filtros y transformación de recetas
+```
+
+Las pantallas presentan y coordinan la interacción; los componentes encapsulan piezas visuales; los hooks agrupan estado reutilizable; los servicios gestionan API y módulos del dispositivo; `UserContext` centraliza estado y acciones; `storage` valida/persiste datos y `utils` reúne lógica compartida.
+
+```mermaid
+flowchart TD
+    S[Pantallas] --> UC[UserContext]
+    S --> PS[permissionsService]
+    S --> L[logger]
+    UC --> NS[notificationService]
+    NS --> PS
+    PS --> L
+    NS --> L
+    UC --> L
+    S --> L
+    L --> LS[AsyncStorage: errores recientes]
+    S -->|muestra| DG[DiagnosticsScreen]
+    DG --> L
+```
+
+## Errores, validaciones, registro y rendimiento
+
+Cada evento usa `[fecha ISO] [NIVEL] [módulo] mensaje`; las marcas de tiempo ISO están en UTC. `INFO` registra eventos relevantes, `WARN` condiciones recuperables, `ERROR` fallos y `DEBUG` solo se imprime en desarrollo. El logger conserva hasta 100 eventos recientes en memoria y hasta 50 errores en AsyncStorage; enmascara correos y oculta campos sensibles.
+
+| Módulo | Eventos contemplados en el código |
+| ------ | -------------------------------- |
+| `app` | Inicio, recuperación/inicio/cierre de sesión y errores globales o del ErrorBoundary |
+| `permisos` | Comprobación y solicitud, resultado concedido/denegado/bloqueado/no disponible y fallos |
+| `camara` | Captura, guardado, archivo no disponible y eliminación fallida |
+| `notificaciones` | Programación, cancelación, omisiones y sincronización con conteos |
+| `red` | Tiempo agotado, respuesta HTTP o inválida, cuota del traductor y desconexión |
+| `almacenamiento` | Fallos de lectura/escritura/borrado y recuperación con valores por defecto |
+| `navegacion` | Errores al leer o limpiar respuestas de notificación |
+| `plan` / `historial` | Validación de comida/horario y foto faltante o no cargable |
+
+`ErrorBoundary` registra el error y la pila de componentes y ofrece reiniciar el árbol visual o volver al inicio cuando la navegación está disponible. El manejador global de errores JavaScript también registra el fallo y delega en el manejador previo.
+
+| Pantalla | Validación | Respuesta visible o acción |
+| -------- | ---------- | -------------------------- |
+| Plan / detalle | Receta con identificador válido | Rechaza recetas sin identificador con un aviso claro |
+| Plan / detalle | Confirmar un horario ya ocupado | Pide confirmación antes de reemplazar |
+| Plan | Hora del recordatorio ya pasada | Guarda la comida e informa «Este horario ya pasó, no se programará recordatorio» |
+| Preparación | Foto persistente existente antes de guardar | Si no existe, avisa y permite guardar sin foto; bloquea doble toque durante el guardado |
+| Login / registro | Correo, contraseña y confirmación válidos; campos obligatorios | Muestra errores y no inicia/crea sesión con datos inválidos |
+| Preferencias | Selección válida | Informa si falta una selección |
+| API / traducción | Espera máxima de 10 segundos y respuestas válidas | Muestra estado de error con reintento; distingue «Sin conexión a internet» |
+| Almacenamiento | JSON leído desde AsyncStorage | Si es corrupto, registra el error y retorna valores predeterminados |
+
+Optimizaciones observables: `FlatList` en el Historial (`initialNumToRender` acotado y recorte en Android), `React.memo` en tarjetas de listas, callbacks estabilizados para elementos repetidos, valor de `UserContext` con `useMemo`, imágenes con respaldo y limpieza de suscripciones/listeners en efectos.
+
+La pantalla **Configuración → Diagnóstico → Ver registro de eventos** lista los eventos recientes y permite filtrarlos por nivel. **Borrar registro** requiere confirmación y elimina el registro en memoria y los errores persistidos.
+
+## Casos de prueba APF3
+
+Los estados «Probado» de esta tabla corresponden exclusivamente a los casos indicados como probados en celular. Los demás quedan pendientes de verificación.
+
+| ID | Caso | Pasos | Resultado esperado | Estado |
+| -- | ---- | ----- | ------------------ | ------ |
+| P01 | Captura y guardado de foto | Capturar, usar foto y guardar registro | El historial muestra la fotografía | ✅ Probado en celular |
+| P02 | Foto tras reiniciar | Guardar foto, cerrar y reabrir la app | La foto continúa en el historial | ✅ Probado en celular |
+| P03 | Borrar registro con foto | Borrar desde el historial | El registro se elimina y la app intenta borrar el archivo | ✅ Probado en celular |
+| P04 | Cámara concedida | Entrar al registro y aceptar | Se muestra vista previa | ✅ Probado en celular |
+| P05 | Cámara denegada | Denegar el permiso | Se muestra alternativa con acceso a ajustes/reintento | ✅ Probado en celular |
+| P06 | Cámara bloqueada | Bloquear permiso y abrir ajustes | Se ofrece «Abrir ajustes» | ✅ Probado en celular |
+| P07 | Notificaciones concedidas | Activar el ajuste y aceptar | El permiso queda concedido | ✅ Probado en celular |
+| P08 | Notificaciones denegadas | Denegar al activar el ajuste | El interruptor queda apagado y se informa al usuario | ✅ Probado en celular |
+| P09 | Notificación de prueba | Pulsar el botón de prueba | Llega el aviso local en unos segundos | ✅ Probado en celular |
+| P10 | Recordatorio planificado | Activar ajustes y planificar comida futura | Llega el recordatorio local | ✅ Probado en celular |
+| P11 | Cancelar al quitar comida | Quitar comida planificada | Se cancela su recordatorio | ✅ Probado en celular |
+| P12 | Sin conexión | Desconectar internet y cargar recetas | Se ve el mensaje de falta de conexión | ✅ Probado en celular |
+| P13 | ErrorBoundary | Provocar una excepción capturable | Aparece la pantalla de recuperación | ✅ Probado en celular |
+| P14 | Registro, filtros y borrado | Abrir Diagnóstico, filtrar errores y borrar | Se filtra y se borra tras confirmar | ✅ Probado en celular |
+| P15 | Hora ya pasada | Planificar comida para horario transcurrido | Se guarda sin aviso y se informa | ✅ Probado en celular |
+| P16 | Cambiar cámara y flash | Probar controles del visor | Cambia la cámara y el flash trasero | ⏳ Por verificar |
+| P17 | Repetir foto | Capturar y elegir repetir | Permite tomar otra imagen antes de guardarla | ⏳ Por verificar |
+| P18 | Guardar sin fotografía | Denegar cámara y completar el registro | Se registra sin foto | ⏳ Por verificar |
+| P19 | Apertura de receta desde aviso | Tocar un recordatorio con receta | Se abre el detalle correspondiente | ⏳ Por verificar |
+| P20 | Aviso sin receta | Tocar respuesta de notificación sin identificador de receta | Se abre el Plan | ⏳ Por verificar |
+| P21 | Confirmar reemplazo | Planificar sobre un horario ocupado | Se solicita confirmación antes de reemplazar | ⏳ Por verificar |
+| P22 | Formulario vacío | Intentar acceder o registrarse sin completar campos | Se muestran errores y no se guarda sesión | ⏳ Por verificar |
+| P23 | Datos locales corruptos | Cargar JSON inválido en almacenamiento | La app recupera valores por defecto y registra el error | ⏳ Por verificar |
+| P24 | APK instalable | Generar e instalar APK de vista previa | La app abre sin depender del servidor de desarrollo | ⏳ Por verificar |
+
+## Evidencias APF3
+
+Las capturas esperadas se guardan en [`docs/capturas/apf3/`](docs/capturas/apf3/). El índice explica el contenido de cada archivo; las capturas que todavía no estén en la carpeta quedan pendientes de adjuntar.
+
+| Captura | Funcionalidad que debe mostrar |
+| ------- | ----------------------------- |
+| [01-camara-vista-previa.png](docs/capturas/apf3/01-camara-vista-previa.png) | Vista previa de cámara en el registro |
+| [02-foto-capturada-repetir-usar.png](docs/capturas/apf3/02-foto-capturada-repetir-usar.png) | Foto capturada y controles para repetir o usar |
+| [03-historial-con-foto.png](docs/capturas/apf3/03-historial-con-foto.png) | Registro del historial con fotografía |
+| [04-permiso-camara-dialogo.png](docs/capturas/apf3/04-permiso-camara-dialogo.png) | Solicitud de permiso de cámara |
+| [05-permiso-camara-denegado.png](docs/capturas/apf3/05-permiso-camara-denegado.png) | Alternativa tras denegar la cámara |
+| [06-permiso-camara-ajustes-sistema.png](docs/capturas/apf3/06-permiso-camara-ajustes-sistema.png) | Permiso de cámara en ajustes del sistema |
+| [07-permiso-notificaciones-dialogo.png](docs/capturas/apf3/07-permiso-notificaciones-dialogo.png) | Solicitud de permiso de notificaciones |
+| [08-permiso-notificaciones-bloqueado.png](docs/capturas/apf3/08-permiso-notificaciones-bloqueado.png) | Aviso de permiso bloqueado con acceso a ajustes |
+| [09-configuracion-notificaciones.png](docs/capturas/apf3/09-configuracion-notificaciones.png) | Interruptores y acción de notificación de prueba |
+| [10-plan-con-recordatorio.png](docs/capturas/apf3/10-plan-con-recordatorio.png) | Comida planificada con indicador de recordatorio |
+| [11-notificacion-recordatorio.png](docs/capturas/apf3/11-notificacion-recordatorio.png) | Notificación local recibida |
+| [12-notificacion-abre-receta.png](docs/capturas/apf3/12-notificacion-abre-receta.png) | Detalle abierto desde la notificación |
+| [13-diagnostico-configuracion.png](docs/capturas/apf3/13-diagnostico-configuracion.png) | Acceso a Diagnóstico desde Configuración |
+| [14-registro-eventos.png](docs/capturas/apf3/14-registro-eventos.png) | Lista de eventos recientes |
+| [15-registro-eventos-filtro-error.png](docs/capturas/apf3/15-registro-eventos-filtro-error.png) | Registro filtrado por errores |
+| [16-error-boundary.png](docs/capturas/apf3/16-error-boundary.png) | Pantalla de recuperación del ErrorBoundary |
+| [17-sin-conexion.png](docs/capturas/apf3/17-sin-conexion.png) | Mensaje de error por falta de conexión |
+| [18-validacion-hora-pasada.png](docs/capturas/apf3/18-validacion-hora-pasada.png) | Aviso al planificar una hora pasada |
+| [19-flujo-buscar.png](docs/capturas/apf3/19-flujo-buscar.png) | Búsqueda de recetas en Inicio |
+| [20-flujo-detalle.png](docs/capturas/apf3/20-flujo-detalle.png) | Pantalla de detalle de receta |
+| [21-flujo-plan.png](docs/capturas/apf3/21-flujo-plan.png) | Receta agregada al Plan |
+| [22-flujo-registro-preparacion.png](docs/capturas/apf3/22-flujo-registro-preparacion.png) | Registro de preparación |
+| [23-flujo-historial.png](docs/capturas/apf3/23-flujo-historial.png) | Registro visible en el historial |
+| [24-apk-instalado.png](docs/capturas/apf3/24-apk-instalado.png) | Aplicación ejecutándose desde APK instalado |
+
+## Instalación, ejecución y builds
+
+Requisitos: Node.js/npm y conexión a internet para instalar dependencias y consultar las API.
+
+```bash
+npm install
+npx expo start --dev-client
+```
+
+La cámara y, especialmente, las notificaciones locales se validan en el development build; Expo Go tiene limitaciones para notificaciones y no representa la configuración nativa completa de la app. Para compilar Android con EAS CLI configurado:
+
+```bash
+eas build --platform android --profile development
+eas build --platform android --profile preview
+```
+
+El perfil `development` genera el cliente de desarrollo. El perfil `preview` distribuye internamente un APK instalable, configurado para ejecutarse sin servidor de desarrollo.
+
+## Limitaciones conocidas y mejoras futuras
+
+- Los recordatorios son locales; no hay envío remoto ni sincronización del sistema operativo con un servidor.
+- La entrega puede verse afectada por los permisos y por restricciones de ahorro de batería del dispositivo o fabricante.
+- Los horarios de desayuno, almuerzo, snack y cena son valores fijos en `src/data/mealSlots.js`.
+- TheMealDB entrega nombres/instrucciones en inglés y la traducción al español es bajo demanda mediante un servicio externo.
+- La clasificación de dietas y alérgenos se estima a partir de la categoría y los ingredientes recibidos; no sustituye una verificación nutricional.
+
+## Tecnologías y versiones
+
+Versiones declaradas en `package.json` (rangos conservados tal cual):
+
+| Paquete | Versión declarada |
+| ------- | ----------------- |
+| Expo | `^58.0.0` |
+| React Native | `0.88.1` |
+| React | `19.3.0` |
+| `expo-camera` | `~58.0.14` |
+| `expo-file-system` | `~58.0.13` |
+| `expo-notifications` | `~58.1.9` |
+| `expo-constants` | `~58.0.16` |
+| `@react-navigation/native` | `^7.3.18` |
+| `@react-navigation/native-stack` | `^7.18.10` |
+| `@react-navigation/bottom-tabs` | `^7.18.18` |
+| AsyncStorage | `2.2.0` |
+| `@expo/vector-icons` | `^15.1.1` |
+
+Proyecto del curso *Desarrollo de Aplicaciones Móviles*, proyecto 5 de la guía: FoodPlanner. Créditos del equipo/curso: no hay nombres individuales de integrantes documentados en el README original.
 
 ## Manejo de errores, validaciones y logging
 
@@ -121,16 +366,17 @@ Solo se traduce el **detalle** de la receta (ingredientes y pasos; el título se
 ```
 App.js                    # Punto de entrada: UserProvider + navegación
 src/
-├── components/           # Componentes reutilizables (ver tabla)
-├── context/              # Estado global del usuario (UserContext)
-├── data/                 # Categorías, orígenes en español, preferencias y comidas del día (mealSlots)
-├── hooks/                # useRecipes, useRecipe, useDebouncedValue, useRecipeTranslation, usePermission
-├── navigation/           # Stack + Tabs (AppNavigator)
-├── screens/              # Pantallas de la app
-├── services/             # recipesService, translationService, permissionsService y notificationService
-├── storage/              # AsyncStorage: sesión y datos del usuario
-├── theme/                # Paleta de colores única (colors.js)
-└── utils/                # Glosario de traducción (translationGlossary), validaciones, filtros, conversión de datos de la API (mealMapper) y fechas del plan (plan.js)
+├── components/           # Screen, RecipeCard, RecipeImage, ErrorBoundary, modales y controles
+├── context/UserContext.js # Estado de usuario, plan, historial y ajustes
+├── data/                  # mealSlots.js, categories.js, areas.js y preferences.js
+├── hooks/                 # useRecipes, usePermission, useRecipeTranslation y useDebouncedValue
+├── navigation/AppNavigator.js # Stack, pestañas y apertura desde notificaciones
+├── screens/               # Acceso, preferencias, Inicio, detalle, Plan, Favoritos, Perfil,
+│                          # Registro de Preparación, Historial, Configuración y Diagnóstico
+├── services/              # recipesService, translationService, permissionsService, notificationService
+├── storage/               # storage.js, userStorage.js y translationStorage.js
+├── theme/colors.js        # Paleta de colores
+└── utils/                 # logger, validators, plan, recipeFilters, mealMapper, translationGlossary
 ```
 
 **Flujo de datos:** pantalla → hook (`useRecipes` / `useRecipe`) → servicio (`fetch`) → `mealMapper` convierte la respuesta al formato de la app → la pantalla muestra cargando, error, vacío o la lista.
@@ -192,7 +438,7 @@ Todos se importan desde un solo lugar: `import { Screen, Chip } from '../compone
 
 ## 🛠️ Tecnologías
 
-- React Native 0.86 · React 19 · Expo 57
+- React Native 0.88.1 · React 19.3.0 · Expo SDK 58 (`package.json`)
 - React Navigation (Native Stack + Bottom Tabs)
 - Context API + hooks (`useState`, `useEffect`, `useContext`, `useMemo`, `useCallback`, `useRef`)
 - `fetch` con `AbortController` (tiempo máximo de espera de 10 s)
@@ -207,10 +453,10 @@ Todos se importan desde un solo lugar: `import { Screen, Chip } from '../compone
 git clone https://github.com/NicoleSL37/FoodPlannerApp.git
 cd FoodPlannerApp
 npm install
-npx expo start
+npx expo start --dev-client
 ```
 
-Escanea el QR con **Expo Go** (Android/iOS) o presiona `a` para abrir el emulador de Android. **Se necesita conexión a internet** para cargar las recetas.
+La cámara y las notificaciones se deben validar en un development build con las capacidades nativas de la aplicación. Expo Go tiene limitaciones con las notificaciones. También se necesita conexión a internet para cargar las recetas y usar el traductor.
 
 ## 🧪 Cómo probar el flujo principal
 
@@ -259,7 +505,8 @@ Capturas del avance 2 (guardadas en `docs/capturas/`). Cada una demuestra un cri
 **APF3**
 - [x] Cámara real para registrar el platillo, con manejo de permisos
 - [x] Notificaciones locales de comidas planificadas
-- [ ] Manejo de errores y logging básico
+- [x] Manejo de errores, validaciones y logging básico
+- [x] Integración y documentación del avance
 
 ## 📄 Licencia
 
