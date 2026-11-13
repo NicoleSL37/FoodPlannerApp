@@ -12,12 +12,13 @@ import Constants from 'expo-constants';
 import { useFocusEffect } from '@react-navigation/native';
 import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
-import { Screen, ScreenHeader } from '../components';
+import { PrimaryButton, Screen, ScreenHeader } from '../components';
 import usePermission from '../hooks/usePermission';
+import { scheduleTestNotification } from '../services/notificationService';
 
 export default function SettingsScreen({ navigation }) {
     // Los ajustes viven en UserContext y se guardan en AsyncStorage (por usuario)
-    const { settings, updateSetting } = useContext(UserContext);
+    const { settings, userEmail, updateSetting } = useContext(UserContext);
     const { notifications, mealReminders } = settings;
     const { status: permissionStatus, request, openSettings, isLoading, refresh } = usePermission('notifications');
     const notificationsGranted = permissionStatus === 'granted';
@@ -116,6 +117,14 @@ export default function SettingsScreen({ navigation }) {
         handleEnableNotifications();
     };
 
+    const handleTestNotification = async () => {
+        const identifier = await scheduleTestNotification(userEmail);
+        Alert.alert(
+            identifier ? 'Notificación programada' : 'No se pudo programar',
+            identifier ? 'Recibirás una notificación de prueba en unos segundos.' : 'Verifica el permiso de notificaciones e inténtalo de nuevo.'
+        );
+    };
+
     return (
         <Screen>
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -165,8 +174,15 @@ export default function SettingsScreen({ navigation }) {
                         </View>
                     </View>
                     <Text style={styles.hint}>
-                        Al activar las notificaciones, el sistema te pedirá permiso para enviar recordatorios de tus comidas planificadas.
+                        Los recordatorios llegan 15 minutos antes de la hora de cada comida planificada.
                     </Text>
+                    <PrimaryButton
+                        title="Enviar notificación de prueba"
+                        icon="bell"
+                        onPress={handleTestNotification}
+                        disabled={!notificationsGranted || isLoading}
+                        style={styles.testButton}
+                    />
                     {isExpoGo && (
                         <Text style={styles.expoGoHint}>
                             En Expo Go las notificaciones tienen limitaciones. Prueba en el build de la app.
@@ -231,6 +247,9 @@ const styles = StyleSheet.create({
         color: colors.text50,
         marginTop: 10,
         marginLeft: 4,
+    },
+    testButton: {
+        marginTop: 12,
     },
     expoGoHint: {
         fontSize: 10,

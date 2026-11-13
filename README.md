@@ -10,7 +10,7 @@ Proyecto del curso *Desarrollo de Aplicaciones Móviles* (proyecto 5 de la guía
 | ------ | ------ | ------- |
 | **APF1** (semana 5) | ✅ Entregado y mejorado | Estructura, interfaz, props, estado, formulario validado y navegación |
 | **APF2** (semana 10) | ✅ Entregado | Hooks, consumo de API, estados loading/error/vacío y AsyncStorage |
-| APF3 (semana 15) | 🔄 En progreso | Cámara y permisos; avisos locales pendientes |
+| APF3 (semana 15) | 🔄 En progreso | Cámara, permisos y notificaciones locales |
 
 ## ✨ Funcionalidades actuales
 
@@ -34,6 +34,17 @@ Los permisos se solicitan cuando se necesita la función. La aplicación vuelve 
 | ------- | -------------- | ------------ | ----------------------- |
 | Cámara | Al entrar en el registro de preparación | Se activa la vista previa para fotografiar el platillo; la foto es opcional | Si se puede volver a preguntar, aparece **Volver a intentar**; si está bloqueado, aparece **Abrir ajustes**. El registro se puede guardar sin foto |
 | Notificaciones | Al activar **Notificaciones Push** en Configuración | Se activa el ajuste y se pueden habilitar los recordatorios | Si se puede volver a preguntar, el aviso ofrece **Volver a intentar**; si está bloqueado, ofrece **Abrir ajustes**. El ajuste queda apagado |
+
+## Notificaciones
+
+Los recordatorios son notificaciones locales para las comidas del Plan Semanal. Al planificar una receta, se agenda un aviso 15 minutos antes de la hora de esa comida. Al tocarlo, se abre la receta; si no incluye una receta, se abre el Plan. El botón **Enviar notificación de prueba** permite comprobar el permiso y la entrega con un aviso a los cinco segundos.
+
+| Evento | Qué ocurre |
+| ------ | ---------- |
+| Se agrega o cambia una comida del plan | Se programa o reemplaza su recordatorio si están activos **Notificaciones Push** y **Recordatorios de Comida**, y el permiso está concedido |
+| Se quita una comida, se registra como preparada o se apagan los ajustes | Se cancela el recordatorio correspondiente o todos los recordatorios del usuario |
+| Se inicia sesión o se recupera la sesión guardada | Se sincronizan los recordatorios pendientes; se omiten las comidas registradas en el historial |
+| Llega la hora de una comida | Se muestra «Hora de tu …» 15 minutos antes; al tocar el aviso se abre la receta o el Plan |
 
 Las notificaciones locales se prueban en un development build o APK, no en Expo Go.
 
@@ -83,7 +94,7 @@ src/
 ├── hooks/                # useRecipes, useRecipe, useDebouncedValue, useRecipeTranslation, usePermission
 ├── navigation/           # Stack + Tabs (AppNavigator)
 ├── screens/              # Pantallas de la app
-├── services/             # recipesService, translationService y permissionsService
+├── services/             # recipesService, translationService, permissionsService y notificationService
 ├── storage/              # AsyncStorage: sesión y datos del usuario
 ├── theme/                # Paleta de colores única (colors.js)
 └── utils/                # Glosario de traducción (translationGlossary), validaciones, filtros, conversión de datos de la API (mealMapper) y fechas del plan (plan.js)
@@ -181,7 +192,7 @@ Escanea el QR con **Expo Go** (Android/iOS) o presiona `a` para abrir el emulado
 9. Abre una receta, pulsa **Añadir al Plan Semanal**, elige día y comida y entra a **Plan**: la verás en ese día. Cierra la app por completo y ábrela: el plan sigue ahí. Prueba también **Añadir DESAYUNO** desde el Plan y el botón de quitar.
 10. En **Plan**, pulsa **Completar** en una comida y acepta el permiso de cámara al entrar al registro. Toma una foto, pulsa **Usar esta foto** y **Guardar en mi Historial**: la comida queda como "Hecho" y aparece en **Perfil → Historial** (pestaña Plan Semanal). Comprueba que la foto persiste al cerrar y abrir la app y que al borrar el registro también se borra su foto. Repite desde el botón de cámara de una receta para ver Cocina Libre. Si deniegas el permiso, prueba **Volver a intentar**; si lo bloqueas, usa **Abrir ajustes**. También puedes guardar sin foto.
 11. Abre una receta y pulsa **Traducir al español**: verás "Traduciendo..." y luego título, ingredientes y pasos en español. Pulsa **Ver original** para volver. Cierra la app, abre la misma receta y pulsa **Ver en español**: aparece al instante (viene de la caché). Con el internet apagado, prueba traducir otra receta: verás el mensaje de error y **Reintentar traducción**.
-12. En **Perfil → Notificaciones**, apaga un interruptor, cierra la app por completo y ábrela: el ajuste sigue como lo dejaste.
+12. En **Perfil → Notificaciones**, concede el permiso, activa ambos interruptores y pulsa **Enviar notificación de prueba**: debe llegar en unos cinco segundos. Planifica además una comida futura y comprueba el aviso 15 minutos antes; al tocarlo, se abre su receta. Quita la comida o regístrala como preparada y confirma que su recordatorio se cancela.
 13. En **Perfil**, cierra sesión e inicia con otro correo (verás que no tiene tus favoritos); vuelve a entrar con el primero y los recuperas.
 
 ## 📸 Evidencias
@@ -214,7 +225,7 @@ Capturas del avance 2 (guardadas en `docs/capturas/`). Cada una demuestra un cri
 
 **APF3**
 - [x] Cámara real para registrar el platillo, con manejo de permisos
-- [ ] Notificaciones locales de comidas planificadas
+- [x] Notificaciones locales de comidas planificadas
 - [ ] Manejo de errores y logging básico
 
 ## 📄 Licencia

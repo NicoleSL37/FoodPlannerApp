@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toPlanMeal } from '../utils/plan';
 import { File } from 'expo-file-system';
+import * as notificationService from '../services/notificationService';
 import {
     DEFAULT_USER_DATA,
     MAX_HISTORY,
@@ -56,6 +57,7 @@ export function UserProvider({ children }) {
                 setUserName(session.name);
                 setUserEmail(session.email);
                 applyUserData(data);
+                void notificationService.rescheduleAll(session.email, data.plan, data.history, data.settings);
             }
             if (!cancelled) setIsHydrated(true);
         })();
@@ -90,21 +92,26 @@ export function UserProvider({ children }) {
             authChanged.current = true;
             const cleanEmail = email.trim();
             const data = isNewAccount ? DEFAULT_USER_DATA : await loadUserData(cleanEmail);
+            if (userEmail && userEmail.trim().toLowerCase() !== cleanEmail.toLowerCase()) {
+                await notificationService.cancelAllReminders(userEmail);
+            }
             // Todo junto: así el guardado automático nunca ve un estado a medias
             setUserName(name);
             setUserEmail(cleanEmail);
             applyUserData(data);
+            void notificationService.rescheduleAll(cleanEmail, data.plan, data.history, data.settings);
         },
-        [applyUserData]
+        [applyUserData, userEmail]
     );
 
     // Cierra sesión. Los datos siguen guardados en el celular para cuando vuelvas a entrar.
     const signOut = useCallback(() => {
         authChanged.current = true;
+        void notificationService.cancelAllReminders(userEmail);
         setUserName('');
         setUserEmail('');
         applyUserData(DEFAULT_USER_DATA);
-    }, [applyUserData]);
+    }, [applyUserData, userEmail]);
 
     // Agrega o quita una receta de favoritos (se guarda la receta completa para mostrarla sin internet)
     const toggleFavorite = useCallback((recipe) => {
@@ -124,8 +131,12 @@ export function UserProvider({ children }) {
 
     // Asigna una receta a una comida de un día (si ya había una, la reemplaza)
     const setMeal = useCallback((key, slotId, recipe) => {
-        setPlan((prev) => ({ ...prev, [key]: { ...prev[key], [slotId]: toPlanMeal(recipe) } }));
-    }, []);
+        const plannedRecipe = toPlanMeal(recipe);
+        setPlan((prev) => ({ ...prev, [key]: { ...prev[key], [slotId]: plannedRecipe } }));
+        const alreadyCompleted = history.some((entry) => entry.source === 'plan' && entry.planKey === key && entry.slotId === slotId);
+        if (!userEmail || !settings.notifications || !settings.mealReminders || alreadyCompleted) return;
+        void notificationService.scheduleMealReminder({ userEmail, dateKey: key, slotId, recipe: plannedRecipe });
+    }, [history, settings, userEmail]);
 
     // Registra una preparación en el historial (queda primera, con fecha y hora actuales)
     const addHistory = useCallback((entry) => {
@@ -138,7 +149,10 @@ export function UserProvider({ children }) {
             photoUri,
             hasPhoto: Boolean(entry.hasPhoto || photoUri),
         }, ...prev].slice(0, MAX_HISTORY));
-    }, []);
+        if (entry.source === 'plan' && entry.planKey && entry.slotId && userEmail) {
+            void notificationService.cancelMealReminder(userEmail, entry.planKey, entry.slotId);
+        }
+    }, [userEmail]);
 
     const removeHistory = useCallback((id) => {
         const entry = history.find((item) => item.id === id);
@@ -150,12 +164,26 @@ export function UserProvider({ children }) {
             }
         }
         setHistory((prev) => prev.filter((h) => h.id !== id));
-    }, [history]);
+        const anotherCompletionExists = history.some((item) => item.id !== id && item.source === 'plan'
+            && item.planKey === entry?.planKey && item.slotId === entry?.slotId);
+        if (entry?.source === 'plan' && entry.planKey && entry.slotId && userEmail && settings.notifications && settings.mealReminders && !anotherCompletionExists) {
+            const recipe = plan[entry.planKey]?.[entry.slotId];
+            if (recipe) void notificationService.scheduleMealReminder({ userEmail, dateKey: entry.planKey, slotId: entry.slotId, recipe });
+        }
+    }, [history, plan, settings, userEmail]);
 
     // Cambia un ajuste (por ejemplo updateSetting('notifications', false)); se guarda solo
     const updateSetting = useCallback((key, value) => {
-        setSettings((prev) => ({ ...prev, [key]: value }));
-    }, []);
+        const safeValue = key === 'mealReminders' && value ? Boolean(settings.notifications) : value;
+        const nextSettings = { ...settings, [key]: safeValue };
+        setSettings((prev) => ({ ...prev, [key]: safeValue }));
+        if (!userEmail) return;
+        if ((key === 'notifications' && !safeValue) || (key === 'mealReminders' && !safeValue)) {
+            void notificationService.cancelAllReminders(userEmail);
+        } else if (nextSettings.notifications && nextSettings.mealReminders) {
+            void notificationService.rescheduleAll(userEmail, plan, history, nextSettings);
+        }
+    }, [history, plan, settings, userEmail]);
 
     // Quita la receta de una comida; si el día queda vacío, se borra del plan
     const removeMeal = useCallback((key, slotId) => {
@@ -167,7 +195,8 @@ export function UserProvider({ children }) {
             else delete next[key];
             return next;
         });
-    }, []);
+        if (userEmail) void notificationService.cancelMealReminder(userEmail, key, slotId);
+    }, [userEmail]);
 
     const value = useMemo(
         () => ({

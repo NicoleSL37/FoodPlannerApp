@@ -1,8 +1,9 @@
-import React, { useContext } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useContext, useEffect, useRef } from 'react';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 
 import { colors } from '../theme/colors';
 import { UserContext } from '../context/UserContext';
@@ -23,6 +24,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+export const navigationRef = createNavigationContainerRef();
 
 const TABS = [
     { name: 'HomeTab', component: HomeScreen, label: 'Inicio', icon: 'home' },
@@ -65,6 +67,38 @@ function MainTabs() {
 
 export default function AppNavigator() {
     const { isHydrated, userEmail } = useContext(UserContext);
+    const checkedInitialResponse = useRef(false);
+    const handledResponseIds = useRef(new Set());
+
+    useEffect(() => {
+        if (!isHydrated) return undefined;
+        const shouldCheckInitialResponse = !checkedInitialResponse.current;
+        checkedInitialResponse.current = true;
+        if (!userEmail) return undefined;
+
+        const handleNotificationResponse = (response) => {
+            if (!userEmail || !navigationRef.isReady()) return;
+            const identifier = response?.notification?.request?.identifier;
+            if (identifier && handledResponseIds.current.has(identifier)) return;
+            if (identifier) handledResponseIds.current.add(identifier);
+
+            const data = response?.notification?.request?.content?.data || {};
+            const recipeId = typeof data.recipeId === 'string' ? data.recipeId : '';
+            if (recipeId) navigationRef.navigate('RecipeDetail', { recipeId });
+            else navigationRef.navigate('MainTabs', { screen: 'PlanTab' });
+            void Notifications.clearLastNotificationResponseAsync().catch((error) => {
+                console.warn('[notificaciones] No se pudo limpiar la respuesta abierta:', error);
+            });
+        };
+
+        const subscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+        if (shouldCheckInitialResponse) {
+            Notifications.getLastNotificationResponseAsync()
+                .then((response) => { if (response) handleNotificationResponse(response); })
+                .catch((error) => console.warn('[notificaciones] No se pudo leer la notificación inicial:', error));
+        }
+        return () => subscription.remove();
+    }, [isHydrated, userEmail]);
 
     // Mientras se lee la sesión guardada en el celular, mostramos una pantalla de carga
     if (!isHydrated) {
@@ -77,7 +111,7 @@ export default function AppNavigator() {
 
     // Con sesión guardada se entra directo a la app; sin sesión, al Login
     return (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
             <Stack.Navigator initialRouteName={userEmail ? 'MainTabs' : 'Login'} screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="Login" component={LoginScreen} />
                 <Stack.Screen name="Register" component={RegisterScreen} />

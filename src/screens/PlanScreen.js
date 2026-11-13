@@ -15,10 +15,13 @@ import { Screen, PickRecipeModal } from '../components';
 import { categoryLabel } from '../data/categories';
 import { MEAL_SLOTS } from '../data/mealSlots';
 import { buildDays, countPlanned, dateKey } from '../utils/plan';
+import usePermission from '../hooks/usePermission';
 
 export default function PlanScreen({ navigation, route }) {
     // El plan vive en UserContext y se guarda en AsyncStorage (por usuario)
-    const { plan, setMeal, removeMeal, favorites, viewed, history } = useContext(UserContext);
+    const { plan, setMeal, removeMeal, favorites, viewed, history, settings } = useContext(UserContext);
+    const { status: notificationPermission } = usePermission('notifications');
+    const remindersActive = settings.notifications && settings.mealReminders && notificationPermission === 'granted';
 
     const days = useMemo(() => buildDays(3, 15), []);
     const [selectedKey, setSelectedKey] = useState(() => dateKey());
@@ -156,7 +159,10 @@ export default function PlanScreen({ navigation, route }) {
                         return (
                             <View key={slot.id} style={styles.mealSection}>
                                 <View style={styles.mealHeader}>
-                                    <Text style={styles.mealTitle}>{slot.title}</Text>
+                                    <View style={styles.mealHeaderTitle}>
+                                        <Text style={styles.mealTitle}>{slot.title}</Text>
+                                        {meal && remindersActive && <Feather name="bell" size={12} color={colors.primary} accessibilityLabel="Recordatorio activo" />}
+                                    </View>
                                     <Text style={meal ? styles.mealTime : styles.mealTimeEmpty}>
                                         {meal ? slot.defaultTime : 'Sin asignar'}
                                     </Text>
@@ -407,6 +413,11 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 8,
+    },
+    mealHeaderTitle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
     },
     mealTitle: {
         fontSize: 12,
