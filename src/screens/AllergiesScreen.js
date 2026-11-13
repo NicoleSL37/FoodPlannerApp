@@ -1,7 +1,9 @@
 import React, { useState, useContext } from 'react';
+import { Alert } from 'react-native';
 import { UserContext } from '../context/UserContext';
 import { Chip, OnboardingStep } from '../components';
 import { ALLERGY_OPTIONS } from '../data/preferences';
+import { logger } from '../utils/logger';
 
 
 export default function AllergiesScreen({ route, navigation }) {
@@ -24,6 +26,14 @@ export default function AllergiesScreen({ route, navigation }) {
   };
 
   const handleFinish = () => {
+    const validSelection = selected.length > 0
+      && selected.every((option) => ALLERGY_OPTIONS.includes(option))
+      && (!selected.includes('Ninguna') || selected.length === 1);
+    if (!validSelection) {
+      logger.warn('app', 'Selección de alergias inválida; no se guardó el cambio.');
+      Alert.alert('Selección no válida', 'Elige una o más opciones válidas antes de continuar.');
+      return;
+    }
     setAllergies(selected);
 
     if (isEdit) {

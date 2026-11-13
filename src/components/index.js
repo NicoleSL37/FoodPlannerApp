@@ -14,3 +14,4 @@ export { default as ErrorState } from './ErrorState';
 export { default as RecentRecipes } from './RecentRecipes';
 export { default as AddToPlanModal } from './AddToPlanModal';
 export { default as PickRecipeModal } from './PickRecipeModal';
+export { default as ErrorBoundary } from './ErrorBoundary';

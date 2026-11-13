@@ -3,6 +3,7 @@
 // Por eso se traduce solo cuando el usuario lo pide y el resultado se guarda en el celular (storage/translationStorage.js).
 
 import { applyGlossary, protectTerms, restoreTerms, parseIngredient, buildIngredient, normalizeName, ingredientOverride } from '../utils/translationGlossary';
+import { logger } from '../utils/logger';
 
 const BASE_URL = 'https://api.mymemory.translated.net/get';
 const TIMEOUT_MS = 10000;
@@ -53,28 +54,40 @@ async function request(text) {
         response = await fetch(`${BASE_URL}?${params}`, { signal: controller.signal });
     } catch (error) {
         if (error && error.name === 'AbortError') {
+            logger.error('red', 'La solicitud de traducción superó el tiempo límite.', error);
             throw new TranslationError('La traducción tardó demasiado. Revisa tu conexión e inténtalo de nuevo.');
         }
-        throw new TranslationError('No se pudo conectar al traductor. Revisa tu conexión a internet.');
+        logger.error('red', 'No se pudo conectar con el traductor.', error);
+        throw new TranslationError('Sin conexión a internet. No se pudo conectar al traductor.');
     } finally {
         clearTimeout(timer);
     }
 
-    if (response.status === 429) throw new TranslationError(QUOTA_MESSAGE);
+    if (response.status === 429) {
+        logger.warn('red', 'El traductor alcanzó el límite de solicitudes.');
+        throw new TranslationError(QUOTA_MESSAGE);
+    }
+    if (!response.ok) {
+        logger.error('red', `El traductor respondió con el estado ${response.status}.`);
+        throw new TranslationError('El traductor respondió con un error. Inténtalo de nuevo.');
+    }
 
     let data;
     try {
         data = await response.json();
     } catch (error) {
+        logger.error('red', 'El traductor devolvió una respuesta inválida.', error);
         throw new TranslationError('El traductor devolvió una respuesta inválida.');
     }
 
     const translated = data && data.responseData ? data.responseData.translatedText : null;
     // Al agotar el cupo, la API responde con 429 o con un texto de advertencia en lugar de la traducción
     if ((data && data.quotaFinished) || Number(data && data.responseStatus) === 429 || /MYMEMORY WARNING/i.test(translated || '')) {
+        logger.warn('red', 'El traductor indicó que se agotó el límite gratuito.');
         throw new TranslationError(QUOTA_MESSAGE);
     }
     if (Number(data && data.responseStatus) !== 200 || typeof translated !== 'string') {
+        logger.error('red', 'El traductor respondió sin un texto válido.');
         throw new TranslationError('No se pudo traducir la receta. Inténtalo de nuevo.');
     }
     return decodeEntities(translated);

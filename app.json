@@ -8,9 +8,23 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.foodplanner.app"
+      "bundleIdentifier": "com.foodplanner.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "FoodPlanner necesita acceder a la cámara para fotografiar el platillo preparado."
+      }
     },
     "android": {
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -21,6 +35,29 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "FoodPlanner necesita acceder a la cámara para fotografiar el platillo preparado.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-file-system",
+      "expo-status-bar",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "enableRemoteNotifications": false
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d37a0268-6075-4f7f-9ca2-397f5daa2fe0"
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 // Único lugar de la app que habla con la API de recetas (TheMealDB).
 // Las pantallas nunca llaman a fetch directamente: usan estas funciones (o los hooks de src/hooks).
 import { mapMealToRecipe, mapSummaryToRecipe } from '../utils/mealMapper';
+import { logger } from '../utils/logger';
 
 // 1 = clave pública de pruebas de TheMealDB
 const BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
@@ -22,20 +23,25 @@ async function request(path) {
         response = await fetch(`${BASE_URL}/${path}`, { signal: controller.signal });
     } catch (error) {
         if (error && error.name === 'AbortError') {
-            throw new ApiError('La solicitud tardó demasiado. Revisa tu conexión e inténtalo de nuevo.');
+            const apiError = new ApiError('La solicitud tardó demasiado. Revisa tu conexión e inténtalo de nuevo.');
+            logger.error('red', 'La solicitud de recetas superó el tiempo límite.', error);
+            throw apiError;
         }
-        throw new ApiError('No se pudo conectar. Revisa tu conexión a internet.');
+        logger.error('red', 'No se pudo conectar con el servicio de recetas.', error);
+        throw new ApiError('Sin conexión a internet. Revisa tu conexión e inténtalo de nuevo.');
     } finally {
         clearTimeout(timer);
     }
 
     if (!response.ok) {
+        logger.error('red', `El servicio de recetas respondió con el estado ${response.status}.`);
         throw new ApiError(`El servidor respondió con un error (${response.status}).`);
     }
 
     try {
         return await response.json();
     } catch (error) {
+        logger.error('red', 'El servicio de recetas devolvió una respuesta inválida.', error);
         throw new ApiError('Recibimos una respuesta inválida del servidor.');
     }
 }
@@ -57,6 +63,7 @@ export async function getRecipesByCategory(category) {
 
 /** Trae una receta completa por id. */
 export async function getRecipeById(id) {
+    if (typeof id !== 'string' || !id.trim()) throw new ApiError('No encontramos esta receta.');
     const data = await request(`lookup.php?i=${encodeURIComponent(id)}`);
     const [meal] = toArray(data);
     if (!meal) throw new ApiError('No encontramos esta receta.');

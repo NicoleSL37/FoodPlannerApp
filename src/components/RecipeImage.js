@@ -9,7 +9,7 @@ import { colors } from '../theme/colors';
  *  - ok: la imagen
  *  - error / sin imagen: ícono de la receta (así la pantalla nunca queda vacía ni rota)
  */
-export default function RecipeImage({ uri, icon = 'coffee', style }) {
+function RecipeImage({ uri, icon = 'coffee', style, onError }) {
     const [status, setStatus] = useState(uri ? 'loading' : 'error');
 
     // Si cambia la receta (otra uri), reiniciamos el estado
@@ -32,7 +32,10 @@ export default function RecipeImage({ uri, icon = 'coffee', style }) {
                 style={styles.fill}
                 resizeMode="cover"
                 onLoad={() => setStatus('ok')}
-                onError={() => setStatus('error')}
+                onError={(event) => {
+                    setStatus('error');
+                    onError?.(event.nativeEvent?.error || event);
+                }}
             />
             {status === 'loading' && (
                 <View style={[StyleSheet.absoluteFill, styles.center]}>
@@ -42,6 +45,8 @@ export default function RecipeImage({ uri, icon = 'coffee', style }) {
         </View>
     );
 }
+
+export default React.memo(RecipeImage);
 
 const styles = StyleSheet.create({
     fill: { width: '100%', height: '100%' },

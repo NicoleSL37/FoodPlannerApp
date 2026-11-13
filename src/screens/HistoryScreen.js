@@ -1,19 +1,89 @@
-import React, { useContext, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
-  ScrollView,
+    FlatList,
+    Platform,
   Alert,
 } from 'react-native';
+import { File } from 'expo-file-system';
 import { Feather } from '@expo/vector-icons';
 import { UserContext } from '../context/UserContext';
 import { colors } from '../theme/colors';
 import { categoryLabel } from '../data/categories';
 import { MEAL_SLOTS } from '../data/mealSlots';
 import { formatTimestamp } from '../utils/plan';
-import { Screen, ScreenHeader } from '../components';
+import { RecipeImage, Screen, ScreenHeader } from '../components';
+import { logger } from '../utils/logger';
+
+const warnedPhotoRecords = new Set();
+
+const badgeFor = (item) => {
+  const slot = MEAL_SLOTS.find((x) => x.id === item.slotId);
+  if (slot) return slot.title.charAt(0) + slot.title.slice(1).toLowerCase();
+  return categoryLabel(item.category) || 'Receta';
+};
+
+const warnPhotoOnce = (item, reason) => {
+  if (warnedPhotoRecords.has(item.id)) return;
+  warnedPhotoRecords.add(item.id);
+  logger.warn('historial', `No se pudo mostrar la foto del registro ${item.id}: ${reason}`);
+};
+
+const HistoryCard = React.memo(function HistoryCard({ item, onRemove }) {
+  const handlePhotoError = useCallback((error) => {
+    warnPhotoOnce(item, error ? 'falló la carga de la imagen' : 'archivo no disponible');
+  }, [item]);
+
+  useEffect(() => {
+    if (!item.photoUri) return;
+    try {
+      if (!new File(item.photoUri).exists) warnPhotoOnce(item, 'el archivo ya no existe');
+    } catch (error) {
+      warnPhotoOnce(item, error.message || 'no se pudo revisar el archivo');
+    }
+  }, [item]);
+
+  return (
+    <View style={styles.historyCard}>
+      <View style={styles.cardPhotoPlaceholder}>
+        {item.photoUri ? <RecipeImage uri={item.photoUri} icon={item.image ? 'image' : 'coffee'} style={StyleSheet.absoluteFill} onError={handlePhotoError} /> : <View style={styles.noPhoto}>
+          <View style={styles.cameraIconBox}><Feather name="camera" size={24} color={colors.text50} /></View>
+          <Text style={styles.photoText}>Sin foto</Text>
+        </View>}
+        <View style={styles.completedTag}>
+          <View style={styles.greenDot} />
+          <Text style={styles.completedTagText}>Completado</Text>
+        </View>
+      </View>
+      <View style={styles.cardFooter}>
+        <View style={styles.cardFooterTop}>
+          <Text style={[styles.recipeTitle, { flex: 1 }]} numberOfLines={2}>{item.title}</Text>
+          <View style={styles.cardActions}>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText}>{badgeFor(item)}</Text>
+            </View>
+            <TouchableOpacity onPress={() => onRemove(item)} accessibilityLabel={`Borrar ${item.title} del historial`}>
+              <Feather name="trash-2" size={16} color={colors.text50} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View style={styles.cardFooterBottom}>
+          <View style={styles.metaInfo}>
+            <Feather name="clock" size={14} color={colors.primary} />
+            <Text style={styles.metaText}>{formatTimestamp(item.createdAt)}</Text>
+          </View>
+          <View style={styles.metaInfo}>
+            <Feather name={item.source === 'plan' ? 'check-circle' : 'coffee'} size={14} color={colors.primary} />
+            <Text style={styles.metaTypeText}>{item.source === 'plan' ? 'Plan Semanal' : 'Cocina Libre'}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+});
 
 export default function HistoryScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Plan Semanal');
@@ -24,19 +94,12 @@ export default function HistoryScreen({ navigation }) {
   const TAB_SOURCE = { 'Plan Semanal': 'plan', 'Cocina Libre': 'free' };
   const filteredHistory = history.filter((item) => item.source === TAB_SOURCE[activeTab]);
 
-  const handleRemove = (item) => {
+  const handleRemove = useCallback((item) => {
     Alert.alert('Borrar registro', `¿Borrar "${item.title}" de tu historial?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Borrar', style: 'destructive', onPress: () => removeHistory(item.id) },
     ]);
-  };
-
-  // Etiqueta de la tarjeta: la comida del plan (Desayuno…) o la categoría de la receta
-  const badgeFor = (item) => {
-    const slot = MEAL_SLOTS.find((x) => x.id === item.slotId);
-    if (slot) return slot.title.charAt(0) + slot.title.slice(1).toLowerCase();
-    return categoryLabel(item.category) || 'Receta';
-  };
+  }, [removeHistory]);
 
   const handleBack = () => {
     navigation.goBack();
@@ -72,73 +135,29 @@ export default function HistoryScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Lista de Historial */}
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Registros guardados</Text>
-          <View style={styles.summaryBadge}>
-            <Text style={styles.summaryBadgeText}>{filteredHistory.length} recetas</Text>
-          </View>
-        </View>
-
-        {filteredHistory.length > 0 ? (
-          filteredHistory.map((item) => (
-            <View key={item.id} style={styles.historyCard}>
-              {/* Fondo simulación foto */}
-              <View style={styles.cardPhotoPlaceholder}>
-                <View style={styles.cameraIconBox}>
-                  <Feather name="camera" size={24} color="rgba(255,255,255,0.4)" />
-                </View>
-                <Text style={styles.photoText}>{item.hasPhoto ? 'Foto registrada' : 'Sin foto'}</Text>
-                
-                <View style={styles.completedTag}>
-                  <View style={styles.greenDot} />
-                  <Text style={styles.completedTagText}>Completado</Text>
-                </View>
-              </View>
-
-              {/* Bloque inferior de información */}
-              <View style={styles.cardFooter}>
-                <View style={styles.cardFooterTop}>
-                  <Text style={[styles.recipeTitle, { flex: 1 }]} numberOfLines={2}>{item.title}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryBadgeText}>{badgeFor(item)}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => handleRemove(item)} accessibilityLabel={`Borrar ${item.title} del historial`}>
-                      <Feather name="trash-2" size={16} color={colors.text50} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.cardFooterBottom}>
-                  <View style={styles.metaInfo}>
-                    <Feather name="clock" size={14} color={colors.primary} />
-                    <Text style={styles.metaText}>{formatTimestamp(item.createdAt)}</Text>
-                  </View>
-                  <View style={styles.metaInfo}>
-                    <Feather name={item.type === 'Plan Semanal' ? 'check-circle' : 'coffee'} size={14} color={colors.primary} />
-                    <Text style={styles.metaTypeText}>{item.type}</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          ))
-        ) : (
-          /* Estado Vacío por si el filtro no tiene elementos */
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconBox}>
-              <Feather name="camera-off" size={28} color={colors.text50} />
-            </View>
-            <Text style={styles.emptyTitle}>Sin preparaciones aún</Text>
-            <Text style={styles.emptySubtitle}>
-              Aún no tienes registros en esta categoría. ¡Cocina una receta y captura tu foto!
-            </Text>
+      <FlatList
+        style={styles.list}
+        data={filteredHistory}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <HistoryCard item={item} onRemove={handleRemove} />}
+        ListHeaderComponent={(
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Registros guardados</Text>
+            <View style={styles.summaryBadge}><Text style={styles.summaryBadgeText}>{filteredHistory.length} recetas</Text></View>
           </View>
         )}
-
-      </ScrollView>
+        ListEmptyComponent={(
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconBox}><Feather name="camera-off" size={28} color={colors.text50} /></View>
+            <Text style={styles.emptyTitle}>Sin preparaciones aún</Text>
+            <Text style={styles.emptySubtitle}>Aún no tienes registros en esta categoría. ¡Cocina una receta y captura tu foto!</Text>
+          </View>
+        )}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={5}
+        removeClippedSubviews={Platform.OS === 'android'}
+      />
     </Screen>
   );
 }
@@ -148,6 +167,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
+  list: { flex: 1 },
   filterContainer: {
     flexDirection: 'row',
     backgroundColor: 'rgba(234, 230, 223, 0.6)',
@@ -187,11 +207,13 @@ const styles = StyleSheet.create({
   inactiveChipText: {
     color: colors.text,
   },
-  scrollContent: {
+  listContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
     paddingBottom: 30,
     gap: 16,
   },
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -238,6 +260,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
+  noPhoto: { alignItems: 'center', justifyContent: 'center' },
   cameraIconBox: {
     width: 64,
     height: 64,
@@ -284,7 +307,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: colors.white,
     padding: 16,
     borderTopWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
