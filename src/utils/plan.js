@@ -38,6 +38,19 @@ export function formatDayLabel(key) {
     return `${DAY_NAMES[date.getDay()]} ${d}`;
 }
 
+/** Hora local de una comida planificada para validar si aún se puede avisar. */
+export function getMealDateTime(key, slotId) {
+    const slot = MEAL_SLOTS.find((item) => item.id === slotId);
+    const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(slot?.defaultTime || '');
+    const parts = typeof key === 'string' ? key.split('-').map(Number) : [];
+    if (!slot || !match || parts.length !== 3 || parts.some(Number.isNaN)) return null;
+    let hour = Number(match[1]) % 12;
+    if (match[3].toUpperCase() === 'PM') hour += 12;
+    const date = new Date(parts[0], parts[1] - 1, parts[2], hour, Number(match[2]), 0, 0);
+    if (date.getFullYear() !== parts[0] || date.getMonth() !== parts[1] - 1 || date.getDate() !== parts[2]) return null;
+    return date;
+}
+
 /** Del plan solo se guarda lo necesario para mostrar la tarjeta; el detalle completo se pide a la API. */
 export const toPlanMeal = (recipe) => ({
     id: recipe.id,

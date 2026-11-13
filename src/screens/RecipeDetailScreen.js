@@ -19,6 +19,8 @@ import { areaLabel } from '../data/areas';
 import { getAllergyConflicts } from '../utils/recipeFilters';
 import { useRecipe } from '../hooks/useRecipes';
 import { useRecipeTranslation } from '../hooks/useRecipeTranslation';
+import { getMealReminderDate } from '../services/notificationService';
+import { logger } from '../utils/logger';
 
 export default function RecipeDetailScreen({ route, navigation }) {
   const { toggleFavorite, isFavorite, allergies, addViewed, plan, setMeal } = useContext(UserContext);
@@ -79,17 +81,51 @@ export default function RecipeDetailScreen({ route, navigation }) {
 
   // Guarda la receta en el plan (AsyncStorage) y ofrece ir directo a ese día
   const handleConfirmPlan = (key, slotId) => {
-    setMeal(key, slotId, recipe);
-    setPlanModalVisible(false);
     const slot = MEAL_SLOTS.find((s) => s.id === slotId);
-    Alert.alert(
-      'Plan semanal',
-      `Añadiste "${recipe.title}" a ${slot.title.toLowerCase()} (${formatDayLabel(key).toLowerCase()}).`,
-      [
-        { text: 'Seguir aquí', style: 'cancel' },
-        { text: 'Ver plan', onPress: () => navigation.navigate('MainTabs', { screen: 'PlanTab', params: { dateKey: key } }) },
-      ]
-    );
+    if (!slot || !recipe || typeof recipe.id !== 'string' || !recipe.id.trim()) {
+      logger.warn('plan', 'Se rechazó una receta inválida al intentar planificarla.');
+      Alert.alert('Receta no válida', 'No se puede planificar esta receta porque no tiene un identificador válido.');
+      return;
+    }
+
+    const saveMeal = () => {
+      setMeal(key, slotId, recipe);
+      setPlanModalVisible(false);
+      let message = `Añadiste "${recipe.title}" a ${slot.title.toLowerCase()} (${formatDayLabel(key).toLowerCase()}).`;
+      try {
+        if (getMealReminderDate(key, slotId).getTime() <= Date.now()) {
+          message += ' Este horario ya pasó, no se programará recordatorio.';
+          logger.info('plan', `Horario pasado guardado sin recordatorio: ${key}|${slotId}.`);
+        }
+      } catch (error) {
+        logger.warn('plan', 'No se pudo validar la hora elegida para el recordatorio.', error);
+      }
+      Alert.alert(
+        'Plan semanal',
+        message,
+        [
+          { text: 'Seguir aquí', style: 'cancel' },
+          { text: 'Ver plan', onPress: () => navigation.navigate('MainTabs', { screen: 'PlanTab', params: { dateKey: key } }) },
+        ]
+      );
+    };
+
+    const currentMeal = plan[key]?.[slotId];
+    if (currentMeal) {
+      const sameRecipe = currentMeal.id === recipe.id;
+      Alert.alert(
+        sameRecipe ? 'Comida ya planificada' : 'Reemplazar comida',
+        sameRecipe
+          ? `"${recipe.title}" ya está asignada a ese horario. ¿Quieres confirmar esta planificación?`
+          : `Ya tienes "${currentMeal.title}" en ese horario. ¿Quieres reemplazarla por "${recipe.title}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: sameRecipe ? 'Confirmar' : 'Reemplazar', onPress: saveMeal },
+        ]
+      );
+      return;
+    }
+    saveMeal();
   };
 
   return (

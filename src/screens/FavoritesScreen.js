@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import {
     StyleSheet,
     Text,
@@ -15,6 +15,9 @@ import { areaLabel } from '../data/areas';
 export default function FavoritesScreen({ navigation }) {
     const { favorites, toggleFavorite } = useContext(UserContext);
     const [activeFilter, setActiveFilter] = useState('Todas');
+    const handleOpenRecipe = useCallback((recipe) => {
+        navigation.navigate('RecipeDetail', { recipeId: recipe.id, recipe });
+    }, [navigation]);
 
     // Solo mostramos los filtros de las categorías que realmente tienen favoritos
     const filters = useMemo(
@@ -68,6 +71,7 @@ export default function FavoritesScreen({ navigation }) {
                         filteredRecipes.map((recipe) => (
                             <RecipeCard
                                 key={recipe.id}
+                                recipe={recipe}
                                 title={recipe.title}
                                 image={recipe.image}
                                 icon={recipe.icon}
@@ -75,8 +79,8 @@ export default function FavoritesScreen({ navigation }) {
                                 category={categoryLabel(recipe.category)}
                                 meta={recipe.ingredients.length > 0 ? `${recipe.ingredients.length} ingredientes` : null}
                                 isFavorite
-                                onToggleFavorite={() => toggleFavorite(recipe)}
-                                onViewRecipe={() => navigation.navigate('RecipeDetail', { recipeId: recipe.id, recipe })}
+                                onToggleFavorite={toggleFavorite}
+                                onViewRecipe={handleOpenRecipe}
                             />
                         ))
                     ) : (

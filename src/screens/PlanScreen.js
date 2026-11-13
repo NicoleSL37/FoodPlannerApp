@@ -15,10 +15,15 @@ import { Screen, PickRecipeModal } from '../components';
 import { categoryLabel } from '../data/categories';
 import { MEAL_SLOTS } from '../data/mealSlots';
 import { buildDays, countPlanned, dateKey } from '../utils/plan';
+import usePermission from '../hooks/usePermission';
+import { getMealReminderDate } from '../services/notificationService';
+import { logger } from '../utils/logger';
 
 export default function PlanScreen({ navigation, route }) {
     // El plan vive en UserContext y se guarda en AsyncStorage (por usuario)
-    const { plan, setMeal, removeMeal, favorites, viewed, history } = useContext(UserContext);
+    const { plan, setMeal, removeMeal, favorites, viewed, history, settings } = useContext(UserContext);
+    const { status: notificationPermission } = usePermission('notifications');
+    const remindersActive = settings.notifications && settings.mealReminders && notificationPermission === 'granted';
 
     const days = useMemo(() => buildDays(3, 15), []);
     const [selectedKey, setSelectedKey] = useState(() => dateKey());
@@ -67,8 +72,39 @@ export default function PlanScreen({ navigation, route }) {
         : '';
 
     const handlePick = (recipe) => {
-        setMeal(selectedKey, pickerSlot, recipe);
-        setPickerSlot(null);
+        if (!pickerSlot || !recipe || typeof recipe.id !== 'string' || !recipe.id.trim()) {
+            logger.warn('plan', 'Se rechazó una receta inválida al intentar planificarla.');
+            Alert.alert('Receta no válida', 'No se puede planificar esta receta porque no tiene un identificador válido.');
+            return;
+        }
+        const saveMeal = () => {
+            setMeal(selectedKey, pickerSlot, recipe);
+            setPickerSlot(null);
+            try {
+                if (getMealReminderDate(selectedKey, pickerSlot).getTime() <= Date.now()) {
+                    logger.info('plan', `Horario pasado guardado sin recordatorio: ${selectedKey}|${pickerSlot}.`);
+                    Alert.alert('Comida guardada', 'Este horario ya pasó, no se programará recordatorio.');
+                }
+            } catch (error) {
+                logger.warn('plan', 'No se pudo validar la hora elegida para el recordatorio.', error);
+            }
+        };
+        const currentMeal = plan[selectedKey]?.[pickerSlot];
+        if (currentMeal) {
+            const sameRecipe = currentMeal.id === recipe.id;
+            Alert.alert(
+                sameRecipe ? 'Comida ya planificada' : 'Reemplazar comida',
+                sameRecipe
+                    ? `"${recipe.title}" ya está asignada a ese horario. ¿Quieres confirmar esta planificación?`
+                    : `Ya tienes "${currentMeal.title}" en ese horario. ¿Quieres reemplazarla por "${recipe.title}"?`,
+                [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: sameRecipe ? 'Confirmar' : 'Reemplazar', onPress: saveMeal },
+                ]
+            );
+            return;
+        }
+        saveMeal();
     };
 
     const handleRemove = (slot, meal) => {
@@ -156,7 +192,10 @@ export default function PlanScreen({ navigation, route }) {
                         return (
                             <View key={slot.id} style={styles.mealSection}>
                                 <View style={styles.mealHeader}>
-                                    <Text style={styles.mealTitle}>{slot.title}</Text>
+                                    <View style={styles.mealHeaderTitle}>
+                                        <Text style={styles.mealTitle}>{slot.title}</Text>
+                                        {meal && remindersActive && <Feather name="bell" size={12} color={colors.primary} accessibilityLabel="Recordatorio activo" />}
+                                    </View>
                                     <Text style={meal ? styles.mealTime : styles.mealTimeEmpty}>
                                         {meal ? slot.defaultTime : 'Sin asignar'}
                                     </Text>
@@ -407,6 +446,11 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 8,
+    },
+    mealHeaderTitle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
     },
     mealTitle: {
         fontSize: 12,
