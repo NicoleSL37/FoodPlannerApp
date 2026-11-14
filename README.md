@@ -251,12 +251,12 @@ Desde **Configuración → Diagnóstico → Ver registro de eventos** se puede c
 | P13 | ErrorBoundary | Provocar una excepción capturable | Aparece la pantalla de recuperación | ✅ Probado en celular |
 | P14 | Registro, filtros y borrado | Filtrar eventos y borrar el registro tras confirmar | Se muestran resultados filtrados y se borra el registro | ✅ Probado en celular |
 | P15 | Hora pasada | Planificar una comida cuyo horario ya pasó | Se guarda y se informa que no habrá recordatorio | ✅ Probado en celular |
-| P16 | Cambiar cámara y flash | Probar controles del visor | Cambia de cámara y alterna el flash trasero | ⏳ Por verificar |
-| P17 | Repetir foto | Capturar y elegir repetir | Permite tomar otra imagen antes de guardarla | ⏳ Por verificar |
-| P18 | Guardar sin foto | Denegar cámara y completar el registro | Se registra sin fotografía | ⏳ Por verificar |
+| P16 | Cambiar cámara y flash | Probar controles del visor | Cambia de cámara y alterna el flash trasero | ✅ Probado en celular |
+| P17 | Repetir foto | Capturar y elegir repetir | Permite tomar otra imagen antes de guardarla | ✅ Probado en celular |
+| P18 | Guardar sin foto | Denegar cámara y completar el registro | Se registra sin fotografía | ✅ Probado en celular |
 | P19 | Abrir receta desde notificación | Tocar un recordatorio que tenga receta | Se abre el detalle correspondiente | ✅ Probado en celular |
-| P20 | Notificación sin receta | Abrir una respuesta sin identificador de receta | Navega al Plan | ⏳ Por verificar |
-| P21 | Confirmar reemplazo | Planificar una receta en un horario ocupado | Se solicita confirmación | ⏳ Por verificar |
+| P20 | Notificación sin receta | Abrir una respuesta sin identificador de receta | Navega al Plan | ✅ Probado en celular |
+| P21 | Confirmar reemplazo | Planificar una receta en un horario ocupado | Se solicita confirmación | ✅ Probado en celular |
 | P22 | Formularios vacíos o inválidos | Revisar validaciones de acceso y registro | Los errores impiden guardar o iniciar sesión con datos inválidos | Verificado por revisión de código (sin prueba en celular) |
 | P23 | AsyncStorage con JSON corrupto | Revisar la recuperación ante datos JSON inválidos | Registra error y usa valores predeterminados | Verificado por revisión de código (sin prueba en celular) |
 | P24 | APK instalado | Instalar el APK de vista previa y abrir la app | La aplicación arranca desde el APK instalado | ✅ Probado en celular |
